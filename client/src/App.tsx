@@ -34,6 +34,7 @@ import AdminOrders from "@/pages/admin/Orders";
 import InventoryLogin from "@/pages/inventory/Login";
 import InventoryDashboard from "@/pages/inventory/Dashboard";
 import InventoryStock from "@/pages/inventory/Stock";
+import InventoryStockDistribution from "@/pages/inventory/StockDistribution";
 import InventoryRequests from "@/pages/inventory/Requests";
 import InventoryOrders from "@/pages/inventory/Orders";
 
@@ -105,6 +106,7 @@ function Router() {
         <Route path="/inventory/login" element={<InventoryLogin />} />
         <Route path="/inventory/dashboard" element={<InventoryDashboard />} />
         <Route path="/inventory/stock" element={<InventoryStock />} />
+        <Route path="/inventory/distribution" element={<InventoryStockDistribution />} />
         <Route path="/inventory/requests" element={<InventoryRequests />} />
         <Route path="/inventory/orders" element={<InventoryOrders />} />
         

@@ -694,6 +694,15 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/inventory/stock-distribution", authInventory, async (req, res) => {
+    try {
+      const distribution = await storage.getStockDistribution();
+      res.json(distribution);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch stock distribution" });
+    }
+  });
+
   // ==================== STORE ROUTES ====================
 
   app.get("/api/store/stats", authStore, async (req, res) => {

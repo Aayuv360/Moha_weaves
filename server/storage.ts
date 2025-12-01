@@ -99,6 +99,15 @@ export interface IStorage {
   getStoreInventory(storeId: string): Promise<(StoreInventory & { saree: SareeWithDetails })[]>;
   getShopAvailableProducts(storeId: string): Promise<{ saree: SareeWithDetails; storeStock: number }[]>;
   updateStoreInventory(storeId: string, sareeId: string, quantity: number): Promise<StoreInventory>;
+  
+  // Stock Distribution (centralized view)
+  getStockDistribution(): Promise<{
+    saree: SareeWithDetails;
+    totalStock: number;
+    onlineStock: number;
+    storeAllocations: { store: Store; quantity: number }[];
+    unallocated: number;
+  }[]>;
 
   // Store Sales
   getStoreSales(storeId: string, limit?: number): Promise<StoreSaleWithItems[]>;
@@ -701,6 +710,60 @@ export class DatabaseStorage implements IStorage {
       .insert(storeInventory)
       .values({ storeId, sareeId, quantity })
       .returning();
+    return result;
+  }
+
+  async getStockDistribution(): Promise<{
+    saree: SareeWithDetails;
+    totalStock: number;
+    onlineStock: number;
+    storeAllocations: { store: Store; quantity: number }[];
+    unallocated: number;
+  }[]> {
+    const allSarees = await db
+      .select()
+      .from(sarees)
+      .leftJoin(categories, eq(sarees.categoryId, categories.id))
+      .leftJoin(colors, eq(sarees.colorId, colors.id))
+      .leftJoin(fabrics, eq(sarees.fabricId, fabrics.id))
+      .where(eq(sarees.isActive, true))
+      .orderBy(sarees.name);
+
+    const allStores = await db.select().from(stores).where(eq(stores.isActive, true));
+    const allStoreInventory = await db.select().from(storeInventory);
+
+    const result = allSarees.map((row) => {
+      const sareeStoreInventory = allStoreInventory.filter(
+        (inv) => inv.sareeId === row.sarees.id
+      );
+
+      const storeAllocations = sareeStoreInventory
+        .map((inv) => {
+          const store = allStores.find((s) => s.id === inv.storeId);
+          if (store && inv.quantity > 0) {
+            return { store, quantity: inv.quantity };
+          }
+          return null;
+        })
+        .filter((item): item is { store: Store; quantity: number } => item !== null);
+
+      const totalStoreAllocated = storeAllocations.reduce((sum, a) => sum + a.quantity, 0);
+      const unallocated = row.sarees.totalStock - row.sarees.onlineStock - totalStoreAllocated;
+
+      return {
+        saree: {
+          ...row.sarees,
+          category: row.categories,
+          color: row.colors,
+          fabric: row.fabrics,
+        },
+        totalStock: row.sarees.totalStock,
+        onlineStock: row.sarees.onlineStock,
+        storeAllocations,
+        unallocated: Math.max(0, unallocated),
+      };
+    });
+
     return result;
   }
 
