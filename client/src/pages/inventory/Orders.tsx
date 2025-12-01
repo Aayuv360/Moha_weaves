@@ -251,21 +251,21 @@ export default function InventoryOrders() {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
-                                  {order.items.slice(0, 2).map((item) => (
+                                  {(order.items || []).slice(0, 2).map((item) => (
                                     <div
                                       key={item.id}
                                       className="w-10 h-12 rounded overflow-hidden bg-muted"
                                     >
                                       <img
-                                        src={item.saree.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=50"}
-                                        alt={item.saree.name}
+                                        src={item.saree?.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=50"}
+                                        alt={item.saree?.name || "Saree"}
                                         className="w-full h-full object-cover"
                                       />
                                     </div>
                                   ))}
-                                  {order.items.length > 2 && (
+                                  {(order.items?.length || 0) > 2 && (
                                     <span className="text-xs text-muted-foreground">
-                                      +{order.items.length - 2}
+                                      +{(order.items?.length || 0) - 2}
                                     </span>
                                   )}
                                 </div>
@@ -340,15 +340,15 @@ export default function InventoryOrders() {
               <div>
                 <p className="font-medium text-sm mb-2">Items</p>
                 <div className="space-y-2">
-                  {selectedOrder.items.map((item) => (
+                  {(selectedOrder.items || []).map((item) => (
                     <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
                       <img
-                        src={item.saree.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=60"}
-                        alt={item.saree.name}
+                        src={item.saree?.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=60"}
+                        alt={item.saree?.name || "Saree"}
                         className="w-12 h-16 rounded object-cover"
                       />
                       <div className="flex-1">
-                        <p className="font-medium text-sm line-clamp-1">{item.saree.name}</p>
+                        <p className="font-medium text-sm line-clamp-1">{item.saree?.name || "Unknown Saree"}</p>
                         <p className="text-xs text-muted-foreground">
                           Qty: {item.quantity} x {formatPrice(item.price)}
                         </p>
