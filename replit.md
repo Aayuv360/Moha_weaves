@@ -165,6 +165,14 @@ All interactive elements have data-testid attributes for E2E testing:
 ### Data Rows
 - `row-{type}-{id}` - Table rows (e.g., `row-stock-{id}`, `row-order-{id}`, `row-sale-{id}`)
 
+## Address Validation Rules
+All user addresses are validated with:
+- **Name**: 2-100 characters
+- **Phone**: Exactly 10 digits
+- **Locality**: 5-200 characters
+- **City**: 2-100 characters
+- **Pincode**: Exactly 6 digits
+
 ## Recent Changes (December 2024)
 - Migrated from Wouter to React Router v6 for routing across all 30+ component files
 - Implemented user address management with add/edit/delete functionality and default address support
@@ -172,6 +180,9 @@ All interactive elements have data-testid attributes for E2E testing:
 - Added Zod validation for address API endpoints (name, phone, locality, city, pincode)
 - Single-default address enforcement (only one address can be default per user)
 - Seeded database with 20 serviceable pincodes for major Indian cities (Chennai, Delhi, Bangalore, Mumbai, Hyderabad, Kolkata, Ahmedabad)
+- Enhanced checkout page with saved address selection and inline address creation
+- Added delivery day estimates on checkout based on pincode availability
+- Updated user navigation menu (desktop dropdown and mobile) with links to Orders, Wishlist, and Addresses
 - Added comprehensive data-testid attributes across all inventory and store module pages
 - Implemented consistent navigation pattern across Inventory and Store modules with sidebar buttons
 - E2E tests passing for navigation, login/logout, and page transitions in both modules
