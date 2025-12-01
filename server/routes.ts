@@ -722,6 +722,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/store/products", authStore, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user.storeId) {
+        return res.status(400).json({ message: "No store assigned" });
+      }
+      const products = await storage.getShopAvailableProducts(user.storeId);
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
   app.get("/api/store/sales", authStore, async (req, res) => {
     try {
       const user = (req as any).user;

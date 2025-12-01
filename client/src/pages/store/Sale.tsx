@@ -33,7 +33,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { SareeWithDetails, StoreInventory } from "@shared/schema";
+import type { SareeWithDetails } from "@shared/schema";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/store/dashboard" },
@@ -42,6 +42,11 @@ const navItems = [
   { icon: ClipboardList, label: "Request Stock", href: "/store/requests" },
   { icon: History, label: "Sales History", href: "/store/history" },
 ];
+
+type ShopProduct = {
+  saree: SareeWithDetails;
+  storeStock: number;
+};
 
 interface CartItem {
   sareeId: string;
@@ -63,8 +68,8 @@ export default function StoreSale() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [saleType, setSaleType] = useState<"walk_in" | "reserved">("walk_in");
 
-  const { data: inventory, isLoading } = useQuery<(StoreInventory & { saree: SareeWithDetails })[]>({
-    queryKey: ["/api/store/inventory"],
+  const { data: products, isLoading } = useQuery<ShopProduct[]>({
+    queryKey: ["/api/store/products"],
     enabled: !!user && user.role === "store",
   });
 
@@ -81,6 +86,7 @@ export default function StoreSale() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/store/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/store/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/store/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/store/inventory"] });
       toast({ title: "Success", description: "Sale completed successfully" });
       setCart([]);
@@ -107,13 +113,17 @@ export default function StoreSale() {
     }).format(numPrice);
   };
 
-  const addToCart = (inventoryItem: StoreInventory & { saree: SareeWithDetails }) => {
-    const existing = cart.find((item) => item.sareeId === inventoryItem.sareeId);
+  const addToCart = (product: ShopProduct) => {
+    if (product.storeStock === 0) {
+      toast({ title: "Out of stock", description: "This product is not available in your store", variant: "destructive" });
+      return;
+    }
+    const existing = cart.find((item) => item.sareeId === product.saree.id);
     if (existing) {
-      if (existing.quantity < inventoryItem.quantity) {
+      if (existing.quantity < product.storeStock) {
         setCart(
           cart.map((item) =>
-            item.sareeId === inventoryItem.sareeId
+            item.sareeId === product.saree.id
               ? { ...item, quantity: item.quantity + 1 }
               : item
           )
@@ -125,11 +135,11 @@ export default function StoreSale() {
       setCart([
         ...cart,
         {
-          sareeId: inventoryItem.sareeId,
-          saree: inventoryItem.saree,
+          sareeId: product.saree.id,
+          saree: product.saree,
           quantity: 1,
-          price: inventoryItem.saree.price,
-          maxQuantity: inventoryItem.quantity,
+          price: product.saree.price,
+          maxQuantity: product.storeStock,
         },
       ]);
     }
@@ -178,9 +188,9 @@ export default function StoreSale() {
     });
   };
 
-  const filteredInventory = inventory?.filter(
+  const filteredProducts = products?.filter(
     (item) =>
-      item.quantity > 0 &&
+      item.storeStock > 0 &&
       (item.saree.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.saree.sku?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -290,14 +300,14 @@ export default function StoreSale() {
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                      {filteredInventory?.map((item) => {
-                        const inCart = cart.find((c) => c.sareeId === item.sareeId);
+                      {filteredProducts?.map((item) => {
+                        const inCart = cart.find((c) => c.sareeId === item.saree.id);
                         return (
                           <div
-                            key={item.id}
+                            key={item.saree.id}
                             className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
                             onClick={() => addToCart(item)}
-                            data-testid={`product-${item.sareeId}`}
+                            data-testid={`product-${item.saree.id}`}
                           >
                             <div className="flex items-center gap-3">
                               <img
@@ -309,7 +319,7 @@ export default function StoreSale() {
                                 <p className="font-medium text-sm line-clamp-1">{item.saree.name}</p>
                                 <p className="text-sm text-primary font-semibold">{formatPrice(item.saree.price)}</p>
                                 <Badge variant="secondary" className="text-xs">
-                                  {item.quantity} in stock
+                                  {item.storeStock} in stock
                                 </Badge>
                               </div>
                             </div>
@@ -323,9 +333,9 @@ export default function StoreSale() {
                           </div>
                         );
                       })}
-                      {filteredInventory?.length === 0 && (
+                      {filteredProducts?.length === 0 && (
                         <p className="text-center text-muted-foreground py-4">
-                          No products found
+                          No products in stock
                         </p>
                       )}
                     </div>

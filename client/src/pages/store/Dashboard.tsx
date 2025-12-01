@@ -41,7 +41,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { SareeWithDetails, StoreSaleWithItems, StoreInventory } from "@shared/schema";
+import type { SareeWithDetails, StoreSaleWithItems } from "@shared/schema";
 
 interface StoreStats {
   todaySales: number;
@@ -49,6 +49,11 @@ interface StoreStats {
   totalInventory: number;
   pendingRequests: number;
 }
+
+type ShopProduct = {
+  saree: SareeWithDetails;
+  storeStock: number;
+};
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/store/dashboard" },
@@ -71,8 +76,8 @@ export default function StoreDashboard() {
     enabled: !!user && user.role === "store",
   });
 
-  const { data: inventory, isLoading: loadingInventory } = useQuery<(StoreInventory & { saree: SareeWithDetails })[]>({
-    queryKey: ["/api/store/inventory"],
+  const { data: products, isLoading: loadingProducts } = useQuery<ShopProduct[]>({
+    queryKey: ["/api/store/products"],
     enabled: !!user && user.role === "store",
   });
 
@@ -109,7 +114,7 @@ export default function StoreDashboard() {
     }).format(numPrice);
   };
 
-  const filteredInventory = inventory?.filter(
+  const filteredProducts = products?.filter(
     (item) =>
       item.saree.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.saree.sku?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -264,17 +269,17 @@ export default function StoreDashboard() {
                     />
                   </div>
 
-                  {loadingInventory ? (
+                  {loadingProducts ? (
                     <div className="space-y-2">
                       {[...Array(3)].map((_, i) => (
                         <Skeleton key={i} className="h-12" />
                       ))}
                     </div>
-                  ) : filteredInventory && filteredInventory.length > 0 ? (
+                  ) : filteredProducts && filteredProducts.length > 0 ? (
                     <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {filteredInventory.slice(0, 10).map((item) => (
+                      {filteredProducts.slice(0, 10).map((item) => (
                         <div
-                          key={item.id}
+                          key={item.saree.id}
                           className="flex items-center justify-between p-2 rounded-lg border hover-elevate"
                         >
                           <div className="flex items-center gap-3">
@@ -288,15 +293,19 @@ export default function StoreDashboard() {
                               <p className="text-xs text-muted-foreground">{formatPrice(item.saree.price)}</p>
                             </div>
                           </div>
-                          <Badge variant={item.quantity < 5 ? "destructive" : "secondary"}>
-                            {item.quantity} in stock
-                          </Badge>
+                          {item.storeStock > 0 ? (
+                            <Badge variant={item.storeStock < 5 ? "secondary" : "default"}>
+                              {item.storeStock} in stock
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive">No stock</Badge>
+                          )}
                         </div>
                       ))}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                      {searchQuery ? "No matching items found" : "No inventory items"}
+                      {searchQuery ? "No matching items found" : "No products available"}
                     </p>
                   )}
                 </CardContent>

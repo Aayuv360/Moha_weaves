@@ -97,6 +97,7 @@ export interface IStorage {
 
   // Store Inventory
   getStoreInventory(storeId: string): Promise<(StoreInventory & { saree: SareeWithDetails })[]>;
+  getShopAvailableProducts(storeId: string): Promise<{ saree: SareeWithDetails; storeStock: number }[]>;
   updateStoreInventory(storeId: string, sareeId: string, quantity: number): Promise<StoreInventory>;
 
   // Store Sales
@@ -640,6 +641,44 @@ export class DatabaseStorage implements IStorage {
         color: row.colors,
         fabric: row.fabrics,
       },
+    }));
+  }
+
+  async getShopAvailableProducts(storeId: string): Promise<{ saree: SareeWithDetails; storeStock: number }[]> {
+    const result = await db
+      .select({
+        saree: sarees,
+        category: categories,
+        color: colors,
+        fabric: fabrics,
+        storeStock: sql<number>`COALESCE((
+          SELECT quantity FROM store_inventory 
+          WHERE store_id = ${storeId} AND saree_id = ${sarees.id}
+        ), 0)::int`,
+      })
+      .from(sarees)
+      .leftJoin(categories, eq(sarees.categoryId, categories.id))
+      .leftJoin(colors, eq(sarees.colorId, colors.id))
+      .leftJoin(fabrics, eq(sarees.fabricId, fabrics.id))
+      .where(
+        and(
+          eq(sarees.isActive, true),
+          or(
+            eq(sarees.distributionChannel, "shop"),
+            eq(sarees.distributionChannel, "both")
+          )
+        )
+      )
+      .orderBy(sarees.name);
+
+    return result.map((row) => ({
+      saree: {
+        ...row.saree,
+        category: row.category,
+        color: row.color,
+        fabric: row.fabric,
+      },
+      storeStock: row.storeStock || 0,
     }));
   }
 
