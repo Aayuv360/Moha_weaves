@@ -33,6 +33,7 @@ import AdminOrders from "@/pages/admin/Orders";
 
 import InventoryLogin from "@/pages/inventory/Login";
 import InventoryDashboard from "@/pages/inventory/Dashboard";
+import InventorySarees from "@/pages/inventory/Sarees";
 import InventoryStock from "@/pages/inventory/Stock";
 import InventoryStockDistribution from "@/pages/inventory/StockDistribution";
 import InventoryRequests from "@/pages/inventory/Requests";
@@ -105,6 +106,7 @@ function Router() {
         {/* Inventory module */}
         <Route path="/inventory/login" element={<InventoryLogin />} />
         <Route path="/inventory/dashboard" element={<InventoryDashboard />} />
+        <Route path="/inventory/sarees" element={<InventorySarees />} />
         <Route path="/inventory/stock" element={<InventoryStock />} />
         <Route path="/inventory/distribution" element={<InventoryStockDistribution />} />
         <Route path="/inventory/requests" element={<InventoryRequests />} />

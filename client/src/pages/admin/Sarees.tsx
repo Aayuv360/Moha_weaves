@@ -2,9 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Package,
-  Plus,
-  Edit,
-  Trash2,
   Search,
   LayoutDashboard,
   Tags,
@@ -35,26 +32,12 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import type { SareeWithDetails, Category, Color, Fabric } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import type { SareeWithDetails } from "@shared/schema";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
@@ -68,174 +51,20 @@ const navItems = [
   { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
 ];
 
-interface SareeFormData {
-  name: string;
-  description: string;
-  price: string;
-  categoryId: string;
-  colorId: string;
-  fabricId: string;
-  imageUrl: string;
-  sku: string;
-  totalStock: number;
-  onlineStock: number;
-  distributionChannel: "shop" | "online" | "both";
-  isFeatured: boolean;
-  isActive: boolean;
-}
-
 export default function AdminSarees() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingSaree, setEditingSaree] = useState<SareeWithDetails | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingSareeId, setDeletingSareeId] = useState<string | null>(null);
-  
-  const [formData, setFormData] = useState<SareeFormData>({
-    name: "",
-    description: "",
-    price: "",
-    categoryId: "",
-    colorId: "",
-    fabricId: "",
-    imageUrl: "",
-    sku: "",
-    totalStock: 0,
-    onlineStock: 0,
-    distributionChannel: "both",
-    isFeatured: false,
-    isActive: true,
-  });
+  const [viewingSaree, setViewingSaree] = useState<SareeWithDetails | null>(null);
 
   const { data: sarees, isLoading } = useQuery<SareeWithDetails[]>({
     queryKey: ["/api/admin/sarees"],
   });
 
-  const { data: categories } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-  });
-
-  const { data: colors } = useQuery<Color[]>({
-    queryKey: ["/api/colors"],
-  });
-
-  const { data: fabrics } = useQuery<Fabric[]>({
-    queryKey: ["/api/fabrics"],
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: SareeFormData) => {
-      const response = await apiRequest("POST", "/api/admin/sarees", {
-        ...data,
-        price: data.price,
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/sarees"] });
-      toast({ title: "Success", description: "Saree created successfully" });
-      handleCloseDialog();
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create saree", variant: "destructive" });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: SareeFormData }) => {
-      const response = await apiRequest("PATCH", `/api/admin/sarees/${id}`, {
-        ...data,
-        price: data.price,
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/sarees"] });
-      toast({ title: "Success", description: "Saree updated successfully" });
-      handleCloseDialog();
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update saree", variant: "destructive" });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/admin/sarees/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/sarees"] });
-      toast({ title: "Success", description: "Saree deleted successfully" });
-      setDeleteDialogOpen(false);
-      setDeletingSareeId(null);
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to delete saree", variant: "destructive" });
-    },
-  });
-
   const handleLogout = async () => {
     await logout();
     navigate("/admin/login");
-  };
-
-  const handleOpenCreate = () => {
-    setEditingSaree(null);
-    setFormData({
-      name: "",
-      description: "",
-      price: "",
-      categoryId: "",
-      colorId: "",
-      fabricId: "",
-      imageUrl: "",
-      sku: "",
-      totalStock: 0,
-      onlineStock: 0,
-      distributionChannel: "both",
-      isFeatured: false,
-      isActive: true,
-    });
-    setDialogOpen(true);
-  };
-
-  const handleOpenEdit = (saree: SareeWithDetails) => {
-    setEditingSaree(saree);
-    setFormData({
-      name: saree.name,
-      description: saree.description || "",
-      price: saree.price.toString(),
-      categoryId: saree.categoryId || "",
-      colorId: saree.colorId || "",
-      fabricId: saree.fabricId || "",
-      imageUrl: saree.imageUrl || "",
-      sku: saree.sku || "",
-      totalStock: saree.totalStock,
-      onlineStock: saree.onlineStock,
-      distributionChannel: saree.distributionChannel,
-      isFeatured: saree.isFeatured,
-      isActive: saree.isActive,
-    });
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingSaree(null);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingSaree) {
-      updateMutation.mutate({ id: editingSaree.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
   };
 
   const formatPrice = (price: string | number) => {
@@ -325,13 +154,12 @@ export default function AdminSarees() {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
               <div>
-                <h1 className="text-2xl font-semibold" data-testid="text-page-title">Sarees</h1>
-                <p className="text-muted-foreground">Manage your saree inventory</p>
+                <h1 className="text-2xl font-semibold" data-testid="text-page-title">Saree Stock Overview</h1>
+                <p className="text-muted-foreground">View saree inventory details (read-only)</p>
               </div>
-              <Button onClick={handleOpenCreate} data-testid="button-add-saree">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Saree
-              </Button>
+              <Badge variant="secondary" className="text-sm">
+                To add/edit sarees, use the Inventory module
+              </Badge>
             </div>
 
             <Card>
@@ -365,10 +193,11 @@ export default function AdminSarees() {
                           <TableHead>SKU</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Price</TableHead>
-                          <TableHead>Stock</TableHead>
+                          <TableHead>Total Stock</TableHead>
+                          <TableHead>Online Stock</TableHead>
                           <TableHead>Channel</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableHead className="text-right">View</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -393,14 +222,11 @@ export default function AdminSarees() {
                             <TableCell>{saree.category?.name || "-"}</TableCell>
                             <TableCell>{formatPrice(saree.price)}</TableCell>
                             <TableCell>
-                              <div className="text-sm">
-                                <span className={saree.totalStock < 10 ? "text-destructive" : ""}>
-                                  {saree.totalStock} total
-                                </span>
-                                <br />
-                                <span className="text-muted-foreground">{saree.onlineStock} online</span>
-                              </div>
+                              <span className={saree.totalStock < 10 ? "text-destructive font-medium" : ""}>
+                                {saree.totalStock}
+                              </span>
                             </TableCell>
+                            <TableCell className="text-muted-foreground">{saree.onlineStock}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize">
                                 {saree.distributionChannel}
@@ -413,30 +239,13 @@ export default function AdminSarees() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center justify-end gap-2">
-                                <Link to={`/sarees/${saree.id}`}>
-                                  <Button variant="ghost" size="icon" data-testid={`button-view-${saree.id}`}>
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </Link>
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => handleOpenEdit(saree)}
-                                  data-testid={`button-edit-${saree.id}`}
+                                  onClick={() => setViewingSaree(saree)}
+                                  data-testid={`button-view-${saree.id}`}
                                 >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive"
-                                  onClick={() => {
-                                    setDeletingSareeId(saree.id);
-                                    setDeleteDialogOpen(true);
-                                  }}
-                                  data-testid={`button-delete-${saree.id}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -452,225 +261,78 @@ export default function AdminSarees() {
         </main>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={!!viewingSaree} onOpenChange={(open) => !open && setViewingSaree(null)}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingSaree ? "Edit Saree" : "Add New Saree"}</DialogTitle>
-            <DialogDescription>
-              {editingSaree ? "Update the saree details below" : "Fill in the details to create a new saree"}
-            </DialogDescription>
+            <DialogTitle>Saree Details</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  data-testid="input-name"
-                />
+          {viewingSaree && (
+            <div className="space-y-4">
+              <div className="flex gap-6">
+                <div className="w-32 h-40 rounded overflow-hidden bg-muted flex-shrink-0">
+                  <img
+                    src={viewingSaree.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200"}
+                    alt={viewingSaree.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="text-xl font-semibold">{viewingSaree.name}</h3>
+                  <p className="text-2xl font-bold text-primary">{formatPrice(viewingSaree.price)}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">{viewingSaree.sku || "No SKU"}</Badge>
+                    <Badge variant={viewingSaree.isActive ? "default" : "secondary"}>
+                      {viewingSaree.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                    {viewingSaree.isFeatured && <Badge variant="secondary">Featured</Badge>}
+                    <Badge variant="outline" className="capitalize">{viewingSaree.distributionChannel}</Badge>
+                  </div>
+                </div>
               </div>
 
-              <div className="col-span-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  data-testid="input-description"
-                />
+              {viewingSaree.description && (
+                <div>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-1">Description</h4>
+                  <p className="text-sm">{viewingSaree.description}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-3 bg-muted rounded-lg text-center">
+                  <p className="text-2xl font-bold">{viewingSaree.totalStock}</p>
+                  <p className="text-xs text-muted-foreground">Total Stock</p>
+                </div>
+                <div className="p-3 bg-muted rounded-lg text-center">
+                  <p className="text-2xl font-bold text-blue-600">{viewingSaree.onlineStock}</p>
+                  <p className="text-xs text-muted-foreground">Online Stock</p>
+                </div>
+                <div className="p-3 bg-muted rounded-lg text-center">
+                  <p className="text-2xl font-bold text-green-600">{viewingSaree.totalStock - viewingSaree.onlineStock}</p>
+                  <p className="text-xs text-muted-foreground">Store/Warehouse</p>
+                </div>
               </div>
 
-              <div>
-                <Label htmlFor="price">Price (INR)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  required
-                  data-testid="input-price"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="sku">SKU</Label>
-                <Input
-                  id="sku"
-                  value={formData.sku}
-                  onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                  data-testid="input-sku"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={formData.categoryId}
-                  onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
-                >
-                  <SelectTrigger data-testid="select-category">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories?.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="color">Color</Label>
-                <Select
-                  value={formData.colorId}
-                  onValueChange={(value) => setFormData({ ...formData, colorId: value })}
-                >
-                  <SelectTrigger data-testid="select-color">
-                    <SelectValue placeholder="Select color" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {colors?.map((col) => (
-                      <SelectItem key={col.id} value={col.id}>
-                        <div className="flex items-center gap-2">
-                          <span className="w-4 h-4 rounded-full" style={{ backgroundColor: col.hexCode }} />
-                          {col.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="fabric">Fabric</Label>
-                <Select
-                  value={formData.fabricId}
-                  onValueChange={(value) => setFormData({ ...formData, fabricId: value })}
-                >
-                  <SelectTrigger data-testid="select-fabric">
-                    <SelectValue placeholder="Select fabric" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fabrics?.map((fab) => (
-                      <SelectItem key={fab.id} value={fab.id}>{fab.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="channel">Distribution Channel</Label>
-                <Select
-                  value={formData.distributionChannel}
-                  onValueChange={(value: "shop" | "online" | "both") => 
-                    setFormData({ ...formData, distributionChannel: value })
-                  }
-                >
-                  <SelectTrigger data-testid="select-channel">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="shop">Shop Only</SelectItem>
-                    <SelectItem value="online">Online Only</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="totalStock">Total Stock</Label>
-                <Input
-                  id="totalStock"
-                  type="number"
-                  value={formData.totalStock}
-                  onChange={(e) => setFormData({ ...formData, totalStock: parseInt(e.target.value) || 0 })}
-                  data-testid="input-total-stock"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="onlineStock">Online Stock</Label>
-                <Input
-                  id="onlineStock"
-                  type="number"
-                  value={formData.onlineStock}
-                  onChange={(e) => setFormData({ ...formData, onlineStock: parseInt(e.target.value) || 0 })}
-                  data-testid="input-online-stock"
-                />
-              </div>
-
-              <div className="col-span-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input
-                  id="imageUrl"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  placeholder="https://..."
-                  data-testid="input-image-url"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="isFeatured"
-                  checked={formData.isFeatured}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isFeatured: checked })}
-                  data-testid="switch-featured"
-                />
-                <Label htmlFor="isFeatured">Featured Product</Label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                  data-testid="switch-active"
-                />
-                <Label htmlFor="isActive">Active</Label>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Category:</span>
+                  <span className="ml-2 font-medium">{viewingSaree.category?.name || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Color:</span>
+                  <span className="ml-2 font-medium flex items-center gap-1">
+                    {viewingSaree.color?.hexCode && (
+                      <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: viewingSaree.color.hexCode }} />
+                    )}
+                    {viewingSaree.color?.name || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Fabric:</span>
+                  <span className="ml-2 font-medium">{viewingSaree.fabric?.name || "N/A"}</span>
+                </div>
               </div>
             </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-                data-testid="button-submit"
-              >
-                {createMutation.isPending || updateMutation.isPending ? "Saving..." : editingSaree ? "Update" : "Create"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Saree</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this saree? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deletingSareeId && deleteMutation.mutate(deletingSareeId)}
-              disabled={deleteMutation.isPending}
-              data-testid="button-confirm-delete"
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   Warehouse,
+  Shirt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +42,8 @@ interface StockDistributionItem {
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/inventory/dashboard" },
-  { icon: Package, label: "Stock Management", href: "/inventory/stock" },
+  { icon: Shirt, label: "Sarees", href: "/inventory/sarees" },
+  { icon: Warehouse, label: "Stock Management", href: "/inventory/stock" },
   { icon: BarChart3, label: "Stock Distribution", href: "/inventory/distribution" },
   { icon: ClipboardList, label: "Store Requests", href: "/inventory/requests" },
   { icon: Truck, label: "Online Orders", href: "/inventory/orders" },

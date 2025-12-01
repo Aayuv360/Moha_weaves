@@ -703,6 +703,43 @@ export async function registerRoutes(
     }
   });
 
+  // Inventory saree management (moved from admin)
+  app.get("/api/inventory/sarees", authInventory, async (req, res) => {
+    try {
+      const sarees = await storage.getSarees({});
+      res.json(sarees);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sarees" });
+    }
+  });
+
+  app.post("/api/inventory/sarees", authInventory, async (req, res) => {
+    try {
+      const saree = await storage.createSaree(req.body);
+      res.json(saree);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create saree" });
+    }
+  });
+
+  app.patch("/api/inventory/sarees/:id", authInventory, async (req, res) => {
+    try {
+      const saree = await storage.updateSaree(req.params.id, req.body);
+      res.json(saree);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update saree" });
+    }
+  });
+
+  app.delete("/api/inventory/sarees/:id", authInventory, async (req, res) => {
+    try {
+      await storage.deleteSaree(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete saree" });
+    }
+  });
+
   // ==================== STORE ROUTES ====================
 
   app.get("/api/store/stats", authStore, async (req, res) => {
