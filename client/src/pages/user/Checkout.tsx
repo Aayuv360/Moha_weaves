@@ -1,29 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingBag, CreditCard, CheckCircle } from "lucide-react";
+import { ArrowLeft, ShoppingBag, CreditCard, CheckCircle, MapPin, Plus, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import type { CartItemWithSaree } from "@shared/schema";
+import type { CartItemWithSaree, UserAddress } from "@shared/schema";
 
-const checkoutSchema = z.object({
-  shippingAddress: z.string().min(10, "Please enter a complete address"),
-  phone: z.string().min(10, "Please enter a valid phone number"),
-  notes: z.string().optional(),
+const addressFormSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  phone: z.string().regex(/^[0-9]{10}$/, "Phone must be a 10-digit number"),
+  locality: z.string().min(5, "Locality must be at least 5 characters"),
+  city: z.string().min(2, "City must be at least 2 characters"),
+  pincode: z.string().regex(/^[0-9]{6}$/, "Pincode must be a 6-digit number"),
 });
-
-type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -32,24 +32,97 @@ export default function Checkout() {
   const queryClient = useQueryClient();
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [pincodeStatus, setPincodeStatus] = useState<{ available: boolean; message: string; deliveryDays?: number } | null>(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
+
+  const [newAddress, setNewAddress] = useState({
+    name: "",
+    phone: "",
+    locality: "",
+    city: "",
+    pincode: "",
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const { data: cartItems, isLoading } = useQuery<CartItemWithSaree[]>({
     queryKey: ["/api/user/cart"],
     enabled: !!user,
   });
 
-  const form = useForm<CheckoutFormValues>({
-    resolver: zodResolver(checkoutSchema),
-    defaultValues: {
-      shippingAddress: "",
-      phone: user?.phone || "",
-      notes: "",
+  const { data: addresses, isLoading: loadingAddresses } = useQuery<UserAddress[]>({
+    queryKey: ["/api/user/addresses"],
+    enabled: !!user && user.role === "user",
+  });
+
+  useEffect(() => {
+    if (addresses && addresses.length > 0 && !selectedAddressId) {
+      const defaultAddress = addresses.find((a) => a.isDefault);
+      if (defaultAddress) {
+        setSelectedAddressId(defaultAddress.id);
+        checkPincodeForAddress(defaultAddress.pincode);
+      } else {
+        setSelectedAddressId(addresses[0].id);
+        checkPincodeForAddress(addresses[0].pincode);
+      }
+    }
+  }, [addresses]);
+
+  const checkPincodeForAddress = async (pincode: string) => {
+    if (pincode.length !== 6) {
+      setPincodeStatus(null);
+      return;
+    }
+    setCheckingPincode(true);
+    try {
+      const response = await fetch(`/api/pincodes/${pincode}/check`);
+      const data = await response.json();
+      setPincodeStatus({
+        available: data.available,
+        message: data.available
+          ? `Delivery available in ${data.deliveryDays} days`
+          : "Delivery not available in this area",
+        deliveryDays: data.deliveryDays,
+      });
+    } catch {
+      setPincodeStatus({ available: false, message: "Unable to check delivery availability" });
+    } finally {
+      setCheckingPincode(false);
+    }
+  };
+
+  const createAddressMutation = useMutation({
+    mutationFn: (data: typeof newAddress) => apiRequest("POST", "/api/user/addresses", data),
+    onSuccess: async (response) => {
+      const newAddr = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/user/addresses"] });
+      setSelectedAddressId(newAddr.id);
+      setShowNewAddressForm(false);
+      setNewAddress({ name: "", phone: "", locality: "", city: "", pincode: "" });
+      toast({ title: "Address added", description: "New address saved successfully" });
+      checkPincodeForAddress(newAddr.pincode);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to add address", variant: "destructive" });
     },
   });
 
   const placeOrderMutation = useMutation({
-    mutationFn: async (data: CheckoutFormValues) => {
-      const response = await apiRequest("POST", "/api/user/orders", data);
+    mutationFn: async () => {
+      const selectedAddress = addresses?.find((a) => a.id === selectedAddressId);
+      if (!selectedAddress) {
+        throw new Error("Please select a delivery address");
+      }
+
+      const shippingAddress = `${selectedAddress.name}\n${selectedAddress.phone}\n${selectedAddress.locality}\n${selectedAddress.city} - ${selectedAddress.pincode}`;
+
+      const response = await apiRequest("POST", "/api/user/orders", {
+        shippingAddress,
+        phone: selectedAddress.phone,
+        notes,
+      });
       return response.json();
     },
     onSuccess: (data: { orderId: string }) => {
@@ -73,6 +146,46 @@ export default function Checkout() {
     }).format(numPrice);
   };
 
+  const handleAddressSelect = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    setShowNewAddressForm(false);
+    const address = addresses?.find((a) => a.id === addressId);
+    if (address) {
+      checkPincodeForAddress(address.pincode);
+    }
+  };
+
+  const handleNewAddressSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormErrors({});
+    
+    const result = addressFormSchema.safeParse(newAddress);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0].toString()] = err.message;
+        }
+      });
+      setFormErrors(errors);
+      return;
+    }
+    
+    createAddressMutation.mutate(newAddress);
+  };
+
+  const handlePlaceOrder = () => {
+    if (!pincodeStatus?.available) {
+      toast({
+        title: "Delivery not available",
+        description: "Please select an address with a serviceable pincode",
+        variant: "destructive",
+      });
+      return;
+    }
+    placeOrderMutation.mutate();
+  };
+
   if (!user) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
@@ -85,7 +198,7 @@ export default function Checkout() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || loadingAddresses) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Skeleton className="h-8 w-48 mb-8" />
@@ -142,10 +255,6 @@ export default function Checkout() {
   const shipping = subtotal >= 2999 ? 0 : 199;
   const total = subtotal + shipping;
 
-  const onSubmit = (values: CheckoutFormValues) => {
-    placeOrderMutation.mutate(values);
-  };
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <Link to="/user/cart">
@@ -158,81 +267,217 @@ export default function Checkout() {
       <h1 className="font-serif text-3xl font-semibold mb-8" data-testid="text-page-title">Checkout</h1>
 
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* Shipping Form */}
-        <div>
+        {/* Shipping Address Selection */}
+        <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Shipping Information</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Delivery Address</span>
+                <Link to="/user/addresses">
+                  <Button variant="ghost" size="sm" data-testid="link-manage-addresses">
+                    Manage
+                  </Button>
+                </Link>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Enter your phone number"
-                            data-testid="input-phone"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="shippingAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Shipping Address</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Enter your complete shipping address"
-                            className="min-h-[100px]"
-                            data-testid="input-address"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Order Notes (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Any special instructions for delivery"
-                            data-testid="input-notes"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
+              {addresses && addresses.length > 0 ? (
+                <RadioGroup
+                  value={selectedAddressId}
+                  onValueChange={handleAddressSelect}
+                  className="space-y-3"
+                >
+                  {addresses.map((address) => (
+                    <div
+                      key={address.id}
+                      className={`flex items-start gap-3 p-4 rounded-lg border transition-colors cursor-pointer ${
+                        selectedAddressId === address.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                      onClick={() => handleAddressSelect(address.id)}
+                      data-testid={`radio-address-${address.id}`}
+                    >
+                      <RadioGroupItem value={address.id} id={address.id} className="mt-1" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{address.name}</span>
+                          {address.isDefault && (
+                            <Badge variant="secondary" className="text-xs">Default</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{address.phone}</p>
+                        <p className="text-sm">
+                          {address.locality}, {address.city} - {address.pincode}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </RadioGroup>
+              ) : !showNewAddressForm ? (
+                <div className="text-center py-6">
+                  <MapPin className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground mb-2">No saved addresses</p>
+                  <p className="text-sm text-muted-foreground mb-4">Add an address to continue with your order</p>
                   <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={placeOrderMutation.isPending}
-                    data-testid="button-place-order"
+                    onClick={() => setShowNewAddressForm(true)}
+                    data-testid="button-add-first-address"
                   >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    {placeOrderMutation.isPending ? "Placing Order..." : `Pay ${formatPrice(total)}`}
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Delivery Address
                   </Button>
+                </div>
+              ) : null}
+
+              {/* Add New Address Button/Form */}
+              {!showNewAddressForm && addresses && addresses.length > 0 ? (
+                <Button
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={() => setShowNewAddressForm(true)}
+                  data-testid="button-add-new-address"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add New Address
+                </Button>
+              ) : null}
+              
+              {showNewAddressForm && (
+                <form onSubmit={handleNewAddressSubmit} className="mt-4 p-4 border rounded-lg space-y-4">
+                  <h4 className="font-medium">New Delivery Address</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input
+                        id="name"
+                        value={newAddress.name}
+                        onChange={(e) => setNewAddress({ ...newAddress, name: e.target.value })}
+                        className={formErrors.name ? "border-destructive" : ""}
+                        data-testid="input-new-name"
+                      />
+                      {formErrors.name && (
+                        <p className="text-xs text-destructive mt-1" data-testid="error-name">{formErrors.name}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone (10 digits)</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        maxLength={10}
+                        value={newAddress.phone}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, "");
+                          setNewAddress({ ...newAddress, phone: value });
+                        }}
+                        className={formErrors.phone ? "border-destructive" : ""}
+                        data-testid="input-new-phone"
+                      />
+                      {formErrors.phone && (
+                        <p className="text-xs text-destructive mt-1" data-testid="error-phone">{formErrors.phone}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="locality">Locality / Street</Label>
+                    <Input
+                      id="locality"
+                      value={newAddress.locality}
+                      onChange={(e) => setNewAddress({ ...newAddress, locality: e.target.value })}
+                      className={formErrors.locality ? "border-destructive" : ""}
+                      data-testid="input-new-locality"
+                    />
+                    {formErrors.locality && (
+                      <p className="text-xs text-destructive mt-1" data-testid="error-locality">{formErrors.locality}</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        value={newAddress.city}
+                        onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                        className={formErrors.city ? "border-destructive" : ""}
+                        data-testid="input-new-city"
+                      />
+                      {formErrors.city && (
+                        <p className="text-xs text-destructive mt-1" data-testid="error-city">{formErrors.city}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="pincode">Pincode (6 digits)</Label>
+                      <Input
+                        id="pincode"
+                        maxLength={6}
+                        value={newAddress.pincode}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, "");
+                          setNewAddress({ ...newAddress, pincode: value });
+                        }}
+                        className={formErrors.pincode ? "border-destructive" : ""}
+                        data-testid="input-new-pincode"
+                      />
+                      {formErrors.pincode && (
+                        <p className="text-xs text-destructive mt-1" data-testid="error-pincode">{formErrors.pincode}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowNewAddressForm(false);
+                        setFormErrors({});
+                      }}
+                      data-testid="button-cancel-address"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={createAddressMutation.isPending}
+                      data-testid="button-save-new-address"
+                    >
+                      {createAddressMutation.isPending ? "Saving..." : "Save Address"}
+                    </Button>
+                  </div>
                 </form>
-              </Form>
+              )}
+
+              {/* Pincode Status */}
+              {selectedAddressId && (
+                <div className="mt-4 p-3 rounded-lg bg-muted/50">
+                  {checkingPincode ? (
+                    <p className="text-sm text-muted-foreground">Checking delivery availability...</p>
+                  ) : pincodeStatus ? (
+                    <div className={`flex items-center gap-2 text-sm ${pincodeStatus.available ? "text-green-600" : "text-destructive"}`}>
+                      {pincodeStatus.available ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4" />
+                      )}
+                      <span data-testid="text-delivery-status">{pincodeStatus.message}</span>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Order Notes */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Order Notes (Optional)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="Any special instructions for delivery"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                data-testid="input-notes"
+              />
             </CardContent>
           </Card>
         </div>
@@ -280,6 +525,12 @@ export default function Checkout() {
                     )}
                   </span>
                 </div>
+                {pincodeStatus?.available && pincodeStatus.deliveryDays && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Estimated Delivery</span>
+                    <span>{pincodeStatus.deliveryDays} days</span>
+                  </div>
+                )}
               </div>
 
               <Separator className="my-4" />
@@ -288,6 +539,22 @@ export default function Checkout() {
                 <span>Total</span>
                 <span data-testid="text-total">{formatPrice(total)}</span>
               </div>
+
+              <Button
+                className="w-full mt-6"
+                disabled={!selectedAddressId || !pincodeStatus?.available || placeOrderMutation.isPending}
+                onClick={handlePlaceOrder}
+                data-testid="button-place-order"
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                {placeOrderMutation.isPending ? "Placing Order..." : `Pay ${formatPrice(total)}`}
+              </Button>
+
+              {!pincodeStatus?.available && selectedAddressId && (
+                <p className="text-sm text-destructive text-center mt-2">
+                  Delivery is not available to the selected address
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

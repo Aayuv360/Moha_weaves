@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Heart, ShoppingBag, User, Menu, Search, X, LogOut, LayoutDashboard } from "lucide-react";
+import { Heart, ShoppingBag, User, Menu, Search, X, LogOut, LayoutDashboard, MapPin, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import {
   DropdownMenu,
@@ -98,6 +99,32 @@ export function Header() {
                     </SheetClose>
                   ))}
                 </nav>
+                {user && user.role === "user" && (
+                  <>
+                    <Separator />
+                    <div className="flex flex-col gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">My Account</p>
+                      <SheetClose asChild>
+                        <Link to="/user/orders" className="flex items-center gap-2 text-base hover:text-primary transition-colors">
+                          <Package className="h-4 w-4" />
+                          My Orders
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link to="/user/wishlist" className="flex items-center gap-2 text-base hover:text-primary transition-colors">
+                          <Heart className="h-4 w-4" />
+                          Wishlist
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link to="/user/addresses" className="flex items-center gap-2 text-base hover:text-primary transition-colors">
+                          <MapPin className="h-4 w-4" />
+                          My Addresses
+                        </Link>
+                      </SheetClose>
+                    </div>
+                  </>
+                )}
               </div>
             </SheetContent>
           </Sheet>
@@ -175,7 +202,7 @@ export function Header() {
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                   <DropdownMenuSeparator />
-                  {getDashboardLink() && (
+                  {user.role !== "user" && getDashboardLink() && (
                     <DropdownMenuItem asChild>
                       <Link to={getDashboardLink()!} className="cursor-pointer" data-testid="link-dashboard">
                         <LayoutDashboard className="mr-2 h-4 w-4" />
@@ -183,11 +210,29 @@ export function Header() {
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem asChild>
-                    <Link to="/user/addresses" className="cursor-pointer" data-testid="link-addresses">
-                      My Addresses
-                    </Link>
-                  </DropdownMenuItem>
+                  {user.role === "user" && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/user/orders" className="cursor-pointer" data-testid="link-orders">
+                          <Package className="mr-2 h-4 w-4" />
+                          My Orders
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/user/wishlist" className="cursor-pointer" data-testid="link-wishlist-menu">
+                          <Heart className="mr-2 h-4 w-4" />
+                          Wishlist
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/user/addresses" className="cursor-pointer" data-testid="link-addresses">
+                          <MapPin className="mr-2 h-4 w-4" />
+                          My Addresses
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive" data-testid="button-logout">
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
