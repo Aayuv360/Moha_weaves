@@ -32,9 +32,16 @@ import AdminOrders from "@/pages/admin/Orders";
 
 import InventoryLogin from "@/pages/inventory/Login";
 import InventoryDashboard from "@/pages/inventory/Dashboard";
+import InventoryStock from "@/pages/inventory/Stock";
+import InventoryRequests from "@/pages/inventory/Requests";
+import InventoryOrders from "@/pages/inventory/Orders";
 
 import StoreLogin from "@/pages/store/Login";
 import StoreDashboard from "@/pages/store/Dashboard";
+import StoreSale from "@/pages/store/Sale";
+import StoreInventoryPage from "@/pages/store/Inventory";
+import StoreRequests from "@/pages/store/Requests";
+import StoreHistory from "@/pages/store/History";
 
 function UserLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -96,12 +103,17 @@ function Router() {
         {/* Inventory module */}
         <Route path="/inventory/login" component={InventoryLogin} />
         <Route path="/inventory/dashboard" component={InventoryDashboard} />
-        <Route path="/inventory/:rest*" component={InventoryDashboard} />
+        <Route path="/inventory/stock" component={InventoryStock} />
+        <Route path="/inventory/requests" component={InventoryRequests} />
+        <Route path="/inventory/orders" component={InventoryOrders} />
         
         {/* Store module */}
         <Route path="/store/login" component={StoreLogin} />
         <Route path="/store/dashboard" component={StoreDashboard} />
-        <Route path="/store/:rest*" component={StoreDashboard} />
+        <Route path="/store/sale" component={StoreSale} />
+        <Route path="/store/inventory" component={StoreInventoryPage} />
+        <Route path="/store/requests" component={StoreRequests} />
+        <Route path="/store/history" component={StoreHistory} />
         
         <Route component={NotFound} />
       </Switch>
