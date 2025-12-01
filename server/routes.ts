@@ -426,6 +426,15 @@ export async function registerRoutes(
   });
 
   // Admin saree management
+  app.get("/api/admin/sarees", authAdmin, async (req, res) => {
+    try {
+      const sarees = await storage.getSarees({});
+      res.json(sarees);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sarees" });
+    }
+  });
+
   app.post("/api/admin/sarees", authAdmin, async (req, res) => {
     try {
       const saree = await storage.createSaree(req.body);

@@ -48,7 +48,10 @@ export default function Checkout() {
   });
 
   const placeOrderMutation = useMutation({
-    mutationFn: (data: CheckoutFormValues) => apiRequest("POST", "/api/user/orders", data),
+    mutationFn: async (data: CheckoutFormValues) => {
+      const response = await apiRequest("POST", "/api/user/orders", data);
+      return response.json();
+    },
     onSuccess: (data: { orderId: string }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/cart/count"] });

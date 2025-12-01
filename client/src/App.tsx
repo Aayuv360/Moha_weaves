@@ -21,6 +21,14 @@ import UserRegister from "@/pages/user/Register";
 
 import AdminLogin from "@/pages/admin/Login";
 import AdminDashboard from "@/pages/admin/Dashboard";
+import AdminSarees from "@/pages/admin/Sarees";
+import AdminCategories from "@/pages/admin/Categories";
+import AdminColors from "@/pages/admin/Colors";
+import AdminFabrics from "@/pages/admin/Fabrics";
+import AdminUsers from "@/pages/admin/Users";
+import AdminStaff from "@/pages/admin/Staff";
+import AdminStores from "@/pages/admin/Stores";
+import AdminOrders from "@/pages/admin/Orders";
 
 import InventoryLogin from "@/pages/inventory/Login";
 import InventoryDashboard from "@/pages/inventory/Dashboard";
@@ -76,7 +84,14 @@ function Router() {
         {/* Admin module */}
         <Route path="/admin/login" component={AdminLogin} />
         <Route path="/admin/dashboard" component={AdminDashboard} />
-        <Route path="/admin/:rest*" component={AdminDashboard} />
+        <Route path="/admin/sarees" component={AdminSarees} />
+        <Route path="/admin/categories" component={AdminCategories} />
+        <Route path="/admin/colors" component={AdminColors} />
+        <Route path="/admin/fabrics" component={AdminFabrics} />
+        <Route path="/admin/users" component={AdminUsers} />
+        <Route path="/admin/staff" component={AdminStaff} />
+        <Route path="/admin/stores" component={AdminStores} />
+        <Route path="/admin/orders" component={AdminOrders} />
         
         {/* Inventory module */}
         <Route path="/inventory/login" component={InventoryLogin} />
