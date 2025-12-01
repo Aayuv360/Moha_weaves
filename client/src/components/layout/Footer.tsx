@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { Mail, Phone, MapPin, Facebook, Instagram, Twitter } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -30,16 +30,16 @@ export function Footer() {
           <div className="space-y-4">
             <h4 className="font-semibold">Quick Links</h4>
             <nav className="flex flex-col gap-2">
-              <Link href="/sarees" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/sarees" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                 Shop All Sarees
               </Link>
-              <Link href="/categories" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/categories" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                 Categories
               </Link>
-              <Link href="/sarees?featured=true" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/sarees?featured=true" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                 Featured Collection
               </Link>
-              <Link href="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                 About Us
               </Link>
             </nav>
@@ -49,16 +49,16 @@ export function Footer() {
           <div className="space-y-4">
             <h4 className="font-semibold">Customer Service</h4>
             <nav className="flex flex-col gap-2">
-              <Link href="/contact" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/contact" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                 Contact Us
               </Link>
-              <Link href="/shipping" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/shipping" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                 Shipping Policy
               </Link>
-              <Link href="/returns" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/returns" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                 Returns & Exchange
               </Link>
-              <Link href="/faq" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/faq" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                 FAQ
               </Link>
             </nav>
@@ -89,10 +89,10 @@ export function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} Moha Sarees. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link href="/privacy" className="hover:text-primary transition-colors">
+            <Link to="/privacy" className="hover:text-primary transition-colors">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="hover:text-primary transition-colors">
+            <Link to="/terms" className="hover:text-primary transition-colors">
               Terms of Service
             </Link>
           </div>

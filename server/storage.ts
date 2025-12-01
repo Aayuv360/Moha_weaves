@@ -1,6 +1,7 @@
 import {
   users, categories, colors, fabrics, stores, sarees, storeInventory,
   wishlist, cart, orders, orderItems, storeSales, storeSaleItems, stockRequests,
+  userAddresses, serviceablePincodes,
   type User, type InsertUser, type Category, type InsertCategory,
   type Color, type InsertColor, type Fabric, type InsertFabric,
   type Store, type InsertStore, type Saree, type InsertSaree,
@@ -10,6 +11,8 @@ import {
   type Order, type InsertOrder, type OrderItem, type InsertOrderItem,
   type StoreSale, type InsertStoreSale, type StoreSaleItem, type InsertStoreSaleItem,
   type StockRequest, type InsertStockRequest,
+  type UserAddress, type InsertUserAddress,
+  type ServiceablePincode, type InsertServiceablePincode,
   type SareeWithDetails, type CartItemWithSaree, type WishlistItemWithSaree,
   type OrderWithItems, type StockRequestWithDetails, type StoreSaleWithItems,
 } from "@shared/schema";
@@ -120,6 +123,21 @@ export interface IStorage {
     totalInventory: number;
     pendingRequests: number;
   }>;
+
+  // User Addresses
+  getUserAddresses(userId: string): Promise<UserAddress[]>;
+  getUserAddress(id: string): Promise<UserAddress | undefined>;
+  createUserAddress(address: InsertUserAddress): Promise<UserAddress>;
+  updateUserAddress(id: string, data: Partial<InsertUserAddress>): Promise<UserAddress | undefined>;
+  deleteUserAddress(id: string): Promise<boolean>;
+  setDefaultAddress(userId: string, addressId: string): Promise<UserAddress | undefined>;
+
+  // Serviceable Pincodes
+  checkPincodeAvailability(pincode: string): Promise<ServiceablePincode | undefined>;
+  getServiceablePincodes(): Promise<ServiceablePincode[]>;
+  createServiceablePincode(pincode: InsertServiceablePincode): Promise<ServiceablePincode>;
+  updateServiceablePincode(id: string, data: Partial<InsertServiceablePincode>): Promise<ServiceablePincode | undefined>;
+  deleteServiceablePincode(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -814,6 +832,88 @@ export class DatabaseStorage implements IStorage {
       totalInventory: inventorySum?.sum || 0,
       pendingRequests: requestCount?.count || 0,
     };
+  }
+
+  // User Addresses
+  async getUserAddresses(userId: string): Promise<UserAddress[]> {
+    return db
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.userId, userId))
+      .orderBy(desc(userAddresses.isDefault), desc(userAddresses.createdAt));
+  }
+
+  async getUserAddress(id: string): Promise<UserAddress | undefined> {
+    const [address] = await db.select().from(userAddresses).where(eq(userAddresses.id, id));
+    return address || undefined;
+  }
+
+  async createUserAddress(address: InsertUserAddress): Promise<UserAddress> {
+    if (address.isDefault) {
+      await db
+        .update(userAddresses)
+        .set({ isDefault: false })
+        .where(eq(userAddresses.userId, address.userId));
+    }
+    const [result] = await db.insert(userAddresses).values(address).returning();
+    return result;
+  }
+
+  async updateUserAddress(id: string, data: Partial<InsertUserAddress>): Promise<UserAddress | undefined> {
+    if (data.isDefault) {
+      const [existing] = await db.select().from(userAddresses).where(eq(userAddresses.id, id));
+      if (existing) {
+        await db
+          .update(userAddresses)
+          .set({ isDefault: false })
+          .where(eq(userAddresses.userId, existing.userId));
+      }
+    }
+    const [result] = await db.update(userAddresses).set(data).where(eq(userAddresses.id, id)).returning();
+    return result || undefined;
+  }
+
+  async deleteUserAddress(id: string): Promise<boolean> {
+    const result = await db.delete(userAddresses).where(eq(userAddresses.id, id));
+    return true;
+  }
+
+  async setDefaultAddress(userId: string, addressId: string): Promise<UserAddress | undefined> {
+    await db.update(userAddresses).set({ isDefault: false }).where(eq(userAddresses.userId, userId));
+    const [result] = await db
+      .update(userAddresses)
+      .set({ isDefault: true })
+      .where(and(eq(userAddresses.id, addressId), eq(userAddresses.userId, userId)))
+      .returning();
+    return result || undefined;
+  }
+
+  // Serviceable Pincodes
+  async checkPincodeAvailability(pincode: string): Promise<ServiceablePincode | undefined> {
+    const [result] = await db
+      .select()
+      .from(serviceablePincodes)
+      .where(and(eq(serviceablePincodes.pincode, pincode), eq(serviceablePincodes.isActive, true)));
+    return result || undefined;
+  }
+
+  async getServiceablePincodes(): Promise<ServiceablePincode[]> {
+    return db.select().from(serviceablePincodes).orderBy(asc(serviceablePincodes.pincode));
+  }
+
+  async createServiceablePincode(pincode: InsertServiceablePincode): Promise<ServiceablePincode> {
+    const [result] = await db.insert(serviceablePincodes).values(pincode).returning();
+    return result;
+  }
+
+  async updateServiceablePincode(id: string, data: Partial<InsertServiceablePincode>): Promise<ServiceablePincode | undefined> {
+    const [result] = await db.update(serviceablePincodes).set(data).where(eq(serviceablePincodes.id, id)).returning();
+    return result || undefined;
+  }
+
+  async deleteServiceablePincode(id: string): Promise<boolean> {
+    await db.delete(serviceablePincodes).where(eq(serviceablePincodes.id, id));
+    return true;
   }
 }
 

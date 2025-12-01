@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ShoppingCart,
   Package,
@@ -59,7 +59,7 @@ const navItems = [
 ];
 
 export default function StoreDashboard() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -83,7 +83,7 @@ export default function StoreDashboard() {
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/store/login");
+    navigate("/store/login");
   };
 
   if (!user || user.role !== "store") {
@@ -92,7 +92,7 @@ export default function StoreDashboard() {
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-4">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You don't have permission to access this page.</p>
-          <Link href="/store/login">
+          <Link to="/store/login">
             <Button>Go to Store Login</Button>
           </Link>
         </div>
@@ -118,13 +118,13 @@ export default function StoreDashboard() {
   const Sidebar = () => (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b">
-        <Link href="/" className="font-serif text-xl font-semibold text-primary">
+        <Link to="/" className="font-serif text-xl font-semibold text-primary">
           Moha Store
         </Link>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
+          <Link key={item.href} to={item.href}>
             <Button
               variant="ghost"
               className="w-full justify-start gap-3"
@@ -181,7 +181,7 @@ export default function StoreDashboard() {
                 <h1 className="text-2xl font-semibold" data-testid="text-page-title">Store Dashboard</h1>
                 <p className="text-muted-foreground">Manage your store sales and inventory</p>
               </div>
-              <Link href="/store/sale">
+              <Link to="/store/sale">
                 <Button data-testid="button-new-sale">
                   <Plus className="h-4 w-4 mr-2" />
                   New Sale
@@ -309,7 +309,7 @@ export default function StoreDashboard() {
                     <Receipt className="h-5 w-5" />
                     Recent Sales
                   </CardTitle>
-                  <Link href="/store/history">
+                  <Link to="/store/history">
                     <Button variant="ghost" size="sm">View All</Button>
                   </Link>
                 </CardHeader>

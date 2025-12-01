@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -29,7 +29,7 @@ export default function Categories() {
       ) : categories && categories.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.map((category) => (
-            <Link key={category.id} href={`/sarees?category=${category.id}`}>
+            <Link key={category.id} to={`/sarees?category=${category.id}`}>
               <Card
                 className="group relative aspect-[4/3] overflow-hidden hover-elevate cursor-pointer"
                 data-testid={`card-category-${category.id}`}

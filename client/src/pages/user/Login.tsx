@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function UserLogin() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { login } = useAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -40,7 +40,7 @@ export default function UserLogin() {
       const result = await login(values.email, values.password, "user");
       if (result.success) {
         toast({ title: "Welcome back!", description: "You have successfully logged in." });
-        setLocation("/");
+        navigate("/");
       } else {
         toast({ title: "Login failed", description: result.error, variant: "destructive" });
       }
@@ -53,7 +53,7 @@ export default function UserLogin() {
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="font-serif text-3xl font-semibold text-primary">
+          <Link to="/" className="font-serif text-3xl font-semibold text-primary">
             Moha
           </Link>
           <p className="text-muted-foreground mt-2">Welcome back to your saree journey</p>
@@ -136,7 +136,7 @@ export default function UserLogin() {
           <CardFooter className="flex flex-col gap-4">
             <p className="text-sm text-center text-muted-foreground">
               Don't have an account?{" "}
-              <Link href="/user/register" className="text-primary hover:underline" data-testid="link-register">
+              <Link to="/user/register" className="text-primary hover:underline" data-testid="link-register">
                 Create one
               </Link>
             </p>
@@ -146,13 +146,13 @@ export default function UserLogin() {
         <div className="mt-8 text-center">
           <p className="text-sm text-muted-foreground mb-3">Other login options:</p>
           <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <Link href="/admin/login" className="text-muted-foreground hover:text-primary">
+            <Link to="/admin/login" className="text-muted-foreground hover:text-primary">
               Admin Login
             </Link>
-            <Link href="/inventory/login" className="text-muted-foreground hover:text-primary">
+            <Link to="/inventory/login" className="text-muted-foreground hover:text-primary">
               Inventory Login
             </Link>
-            <Link href="/store/login" className="text-muted-foreground hover:text-primary">
+            <Link to="/store/login" className="text-muted-foreground hover:text-primary">
               Store Login
             </Link>
           </div>

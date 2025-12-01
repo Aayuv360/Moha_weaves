@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Package,
   Plus,
@@ -85,7 +85,7 @@ interface SareeFormData {
 }
 
 export default function AdminSarees() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -181,7 +181,7 @@ export default function AdminSarees() {
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/admin/login");
+    navigate("/admin/login");
   };
 
   const handleOpenCreate = () => {
@@ -258,7 +258,7 @@ export default function AdminSarees() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-4">Access Denied</h2>
-          <Link href="/admin/login">
+          <Link to="/admin/login">
             <Button>Go to Admin Login</Button>
           </Link>
         </div>
@@ -269,13 +269,13 @@ export default function AdminSarees() {
   const Sidebar = () => (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b">
-        <Link href="/" className="font-serif text-xl font-semibold text-primary">
+        <Link to="/" className="font-serif text-xl font-semibold text-primary">
           Moha Admin
         </Link>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
+          <Link key={item.href} to={item.href}>
             <Button
               variant={item.href === "/admin/sarees" ? "secondary" : "ghost"}
               className="w-full justify-start gap-3"
@@ -413,7 +413,7 @@ export default function AdminSarees() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center justify-end gap-2">
-                                <Link href={`/sarees/${saree.id}`}>
+                                <Link to={`/sarees/${saree.id}`}>
                                   <Button variant="ghost" size="icon" data-testid={`button-view-${saree.id}`}>
                                     <Eye className="h-4 w-4" />
                                   </Button>

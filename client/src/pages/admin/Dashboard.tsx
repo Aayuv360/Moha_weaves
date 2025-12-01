@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Users,
   Package,
@@ -50,7 +50,7 @@ const navItems = [
 ];
 
 export default function AdminDashboard() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -66,7 +66,7 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/admin/login");
+    navigate("/admin/login");
   };
 
   if (!user || user.role !== "admin") {
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-4">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You don't have permission to access this page.</p>
-          <Link href="/admin/login">
+          <Link to="/admin/login">
             <Button>Go to Admin Login</Button>
           </Link>
         </div>
@@ -94,13 +94,13 @@ export default function AdminDashboard() {
   const Sidebar = () => (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b">
-        <Link href="/" className="font-serif text-xl font-semibold text-primary">
+        <Link to="/" className="font-serif text-xl font-semibold text-primary">
           Moha Admin
         </Link>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
+          <Link key={item.href} to={item.href}>
             <Button
               variant="ghost"
               className="w-full justify-start gap-3"
@@ -221,19 +221,19 @@ export default function AdminDashboard() {
                   <CardTitle className="text-lg">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-3">
-                  <Link href="/admin/sarees/new">
+                  <Link to="/admin/sarees/new">
                     <Button data-testid="button-add-saree">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Saree
                     </Button>
                   </Link>
-                  <Link href="/admin/categories/new">
+                  <Link to="/admin/categories/new">
                     <Button variant="outline" data-testid="button-add-category">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Category
                     </Button>
                   </Link>
-                  <Link href="/admin/staff/new">
+                  <Link to="/admin/staff/new">
                     <Button variant="outline" data-testid="button-add-staff">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Staff

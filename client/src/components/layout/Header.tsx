@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import { Heart, ShoppingBag, User, Menu, Search, X, LogOut, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ const navLinks = [
 ];
 
 export function Header() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,7 +40,7 @@ export function Header() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      setLocation(`/sarees?search=${encodeURIComponent(searchQuery)}`);
+      navigate(`/sarees?search=${encodeURIComponent(searchQuery)}`);
       setSearchOpen(false);
       setSearchQuery("");
     }
@@ -48,7 +48,7 @@ export function Header() {
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/");
+    navigate("/");
   };
 
   const getDashboardLink = () => {
@@ -82,14 +82,14 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="left" className="w-72">
               <div className="flex flex-col gap-6 mt-8">
-                <Link href="/" className="font-serif text-2xl font-semibold text-primary">
+                <Link to="/" className="font-serif text-2xl font-semibold text-primary">
                   Moha
                 </Link>
                 <nav className="flex flex-col gap-4">
                   {navLinks.map((link) => (
                     <SheetClose asChild key={link.href}>
                       <Link
-                        href={link.href}
+                        to={link.href}
                         className="text-lg hover:text-primary transition-colors"
                         data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
                       >
@@ -103,7 +103,7 @@ export function Header() {
           </Sheet>
 
           {/* Logo */}
-          <Link href="/" className="font-serif text-2xl md:text-3xl font-semibold text-primary" data-testid="link-logo">
+          <Link to="/" className="font-serif text-2xl md:text-3xl font-semibold text-primary" data-testid="link-logo">
             Moha
           </Link>
 
@@ -112,7 +112,7 @@ export function Header() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                to={link.href}
                 className="text-sm font-medium hover:text-primary transition-colors"
                 data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
               >
@@ -136,7 +136,7 @@ export function Header() {
             {user && user.role === "user" && (
               <>
                 {/* Wishlist */}
-                <Link href="/user/wishlist">
+                <Link to="/user/wishlist">
                   <Button variant="ghost" size="icon" className="relative" data-testid="link-wishlist">
                     <Heart className="h-5 w-5" />
                     {wishlistCount && wishlistCount.count > 0 && (
@@ -148,7 +148,7 @@ export function Header() {
                 </Link>
 
                 {/* Cart */}
-                <Link href="/user/cart">
+                <Link to="/user/cart">
                   <Button variant="ghost" size="icon" className="relative" data-testid="link-cart">
                     <ShoppingBag className="h-5 w-5" />
                     {cartCount && cartCount.count > 0 && (
@@ -177,12 +177,17 @@ export function Header() {
                   <DropdownMenuSeparator />
                   {getDashboardLink() && (
                     <DropdownMenuItem asChild>
-                      <Link href={getDashboardLink()!} className="cursor-pointer" data-testid="link-dashboard">
+                      <Link to={getDashboardLink()!} className="cursor-pointer" data-testid="link-dashboard">
                         <LayoutDashboard className="mr-2 h-4 w-4" />
                         Dashboard
                       </Link>
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem asChild>
+                    <Link to="/user/addresses" className="cursor-pointer" data-testid="link-addresses">
+                      My Addresses
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive" data-testid="button-logout">
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
@@ -190,7 +195,7 @@ export function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Link href="/user/login">
+              <Link to="/user/login">
                 <Button variant="ghost" size="icon" data-testid="link-login">
                   <User className="h-5 w-5" />
                 </Button>

@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { ArrowRight, Sparkles, Truck, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -49,13 +49,13 @@ export default function Home() {
               Discover our exquisite collection of handcrafted sarees, woven with stories of heritage and artistry.
             </p>
             <div className="flex flex-wrap gap-4">
-              <Link href="/sarees">
+              <Link to="/sarees">
                 <Button size="lg" className="bg-white text-primary hover:bg-white/90" data-testid="button-shop-now">
                   Shop Now
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/categories">
+              <Link to="/categories">
                 <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 backdrop-blur-sm" data-testid="button-explore">
                   Explore Collections
                 </Button>
@@ -88,7 +88,7 @@ export default function Home() {
               <h2 className="font-serif text-3xl font-semibold" data-testid="text-categories-title">Shop by Category</h2>
               <p className="text-muted-foreground mt-1">Explore our curated collections</p>
             </div>
-            <Link href="/categories">
+            <Link to="/categories">
               <Button variant="ghost" data-testid="button-view-all-categories">
                 View All <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -104,7 +104,7 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {categories?.slice(0, 8).map((category) => (
-                <Link key={category.id} href={`/sarees?category=${category.id}`}>
+                <Link key={category.id} to={`/sarees?category=${category.id}`}>
                   <Card 
                     className="group relative aspect-square overflow-hidden hover-elevate cursor-pointer"
                     data-testid={`card-category-${category.id}`}
@@ -134,7 +134,7 @@ export default function Home() {
               <h2 className="font-serif text-3xl font-semibold" data-testid="text-featured-title">Featured Collection</h2>
               <p className="text-muted-foreground mt-1">Handpicked favorites from our collection</p>
             </div>
-            <Link href="/sarees?featured=true">
+            <Link to="/sarees?featured=true">
               <Button variant="ghost" data-testid="button-view-all-featured">
                 View All <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -169,7 +169,7 @@ export default function Home() {
               <h2 className="font-serif text-3xl font-semibold" data-testid="text-new-arrivals-title">New Arrivals</h2>
               <p className="text-muted-foreground mt-1">Fresh additions to our collection</p>
             </div>
-            <Link href="/sarees?sort=newest">
+            <Link to="/sarees?sort=newest">
               <Button variant="ghost" data-testid="button-view-all-new">
                 View All <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -205,7 +205,7 @@ export default function Home() {
           <p className="text-white/90 mb-8 max-w-2xl mx-auto">
             Sign up for exclusive offers, new arrivals, and styling tips delivered straight to your inbox.
           </p>
-          <Link href="/user/register">
+          <Link to="/user/register">
             <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-white/90" data-testid="button-join">
               Create Account
             </Button>

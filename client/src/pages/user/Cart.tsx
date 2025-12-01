@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { CartItemWithSaree } from "@shared/schema";
 
 export default function Cart() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -60,7 +60,7 @@ export default function Cart() {
         <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Your cart is waiting</h2>
         <p className="text-muted-foreground mb-6">Please login to view your cart.</p>
-        <Link href="/user/login">
+        <Link to="/user/login">
           <Button data-testid="button-login">Login</Button>
         </Link>
       </div>
@@ -89,7 +89,7 @@ export default function Cart() {
         <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Your cart is empty</h2>
         <p className="text-muted-foreground mb-6">Start shopping to add items to your cart.</p>
-        <Link href="/sarees">
+        <Link to="/sarees">
           <Button data-testid="button-shop">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Continue Shopping
@@ -119,7 +119,7 @@ export default function Cart() {
           {cartItems.map((item) => (
             <Card key={item.id} className="p-4" data-testid={`card-cart-item-${item.id}`}>
               <div className="flex gap-4">
-                <Link href={`/sarees/${item.saree.id}`}>
+                <Link to={`/sarees/${item.saree.id}`}>
                   <div className="w-24 h-32 rounded-md overflow-hidden bg-muted flex-shrink-0">
                     <img
                       src={item.saree.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&h=300&fit=crop"}
@@ -130,7 +130,7 @@ export default function Cart() {
                 </Link>
 
                 <div className="flex-1 min-w-0">
-                  <Link href={`/sarees/${item.saree.id}`}>
+                  <Link to={`/sarees/${item.saree.id}`}>
                     <h3 className="font-medium hover:text-primary line-clamp-2" data-testid={`text-item-name-${item.id}`}>
                       {item.saree.name}
                     </h3>
@@ -233,14 +233,14 @@ export default function Cart() {
 
             <Button
               className="w-full mt-6"
-              onClick={() => setLocation("/user/checkout")}
+              onClick={() => navigate("/user/checkout")}
               data-testid="button-checkout"
             >
               Proceed to Checkout
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
 
-            <Link href="/sarees">
+            <Link to="/sarees">
               <Button variant="ghost" className="w-full mt-2" data-testid="button-continue-shopping">
                 Continue Shopping
               </Button>

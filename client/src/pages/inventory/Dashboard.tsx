@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Package,
   TrendingUp,
@@ -58,7 +58,7 @@ const distributionLabels: Record<string, { label: string; icon: typeof Globe }> 
 };
 
 export default function InventoryDashboard() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -90,7 +90,7 @@ export default function InventoryDashboard() {
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/inventory/login");
+    navigate("/inventory/login");
   };
 
   if (!user || user.role !== "inventory") {
@@ -99,7 +99,7 @@ export default function InventoryDashboard() {
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-4">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You don't have permission to access this page.</p>
-          <Link href="/inventory/login">
+          <Link to="/inventory/login">
             <Button>Go to Inventory Login</Button>
           </Link>
         </div>
@@ -110,13 +110,13 @@ export default function InventoryDashboard() {
   const Sidebar = () => (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b">
-        <Link href="/" className="font-serif text-xl font-semibold text-primary">
+        <Link to="/" className="font-serif text-xl font-semibold text-primary">
           Moha Inventory
         </Link>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
+          <Link key={item.href} to={item.href}>
             <Button
               variant="ghost"
               className="w-full justify-start gap-3"
@@ -213,7 +213,7 @@ export default function InventoryDashboard() {
             <Card className="mb-8">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Low Stock Items</CardTitle>
-                <Link href="/inventory/stock">
+                <Link to="/inventory/stock">
                   <Button variant="ghost" size="sm">View All</Button>
                 </Link>
               </CardHeader>
@@ -275,7 +275,7 @@ export default function InventoryDashboard() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Link href={`/inventory/stock/${saree.id}`}>
+                            <Link to={`/inventory/stock/${saree.id}`}>
                               <Button variant="ghost" size="sm">
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -297,7 +297,7 @@ export default function InventoryDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Pending Store Requests</CardTitle>
-                <Link href="/inventory/requests">
+                <Link to="/inventory/requests">
                   <Button variant="ghost" size="sm">View All</Button>
                 </Link>
               </CardHeader>

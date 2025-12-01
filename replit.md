@@ -4,7 +4,7 @@
 Moha is a full-stack saree e-commerce platform with role-based access for Users, Admin, Inventory Staff, and Store Managers. The platform supports both online sales and in-store operations with inventory management across distribution channels.
 
 ## Tech Stack
-- **Frontend**: React 18 with TypeScript, Wouter for routing, TanStack Query for data fetching
+- **Frontend**: React 18 with TypeScript, React Router v6 for routing, TanStack Query for data fetching
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL (Neon Serverless)
 - **ORM**: Drizzle ORM
@@ -83,6 +83,8 @@ Sarees can be assigned to three distribution modes:
 - `store_sales` / `store_sale_items` - In-store transactions
 - `store_inventory` - Stock per store location
 - `stock_requests` - Store-to-central inventory requests
+- `user_addresses` - User delivery addresses with default flag
+- `serviceable_pincodes` - Delivery availability by pincode
 
 ## API Endpoints
 
@@ -99,10 +101,15 @@ Sarees can be assigned to three distribution modes:
 - `GET /api/sarees` - Sarees with filters
 - `GET /api/sarees/:id` - Single saree
 
+### Public
+- `GET /api/pincodes/:pincode/check` - Check delivery availability by pincode
+
 ### User (Protected)
 - `GET/POST /api/user/cart` - Cart operations
 - `GET/POST/DELETE /api/user/wishlist` - Wishlist operations
 - `GET/POST /api/user/orders` - Order operations
+- `GET/POST/PATCH/DELETE /api/user/addresses` - Address management
+- `PATCH /api/user/addresses/:id/default` - Set default address
 
 ### Admin (Protected)
 - `GET /api/admin/stats` - Dashboard stats
@@ -159,6 +166,12 @@ All interactive elements have data-testid attributes for E2E testing:
 - `row-{type}-{id}` - Table rows (e.g., `row-stock-{id}`, `row-order-{id}`, `row-sale-{id}`)
 
 ## Recent Changes (December 2024)
+- Migrated from Wouter to React Router v6 for routing across all 30+ component files
+- Implemented user address management with add/edit/delete functionality and default address support
+- Added pincode availability checking feature with serviceable pincode database
+- Added Zod validation for address API endpoints (name, phone, locality, city, pincode)
+- Single-default address enforcement (only one address can be default per user)
+- Seeded database with 20 serviceable pincodes for major Indian cities (Chennai, Delhi, Bangalore, Mumbai, Hyderabad, Kolkata, Ahmedabad)
 - Added comprehensive data-testid attributes across all inventory and store module pages
 - Implemented consistent navigation pattern across Inventory and Store modules with sidebar buttons
 - E2E tests passing for navigation, login/logout, and page transitions in both modules

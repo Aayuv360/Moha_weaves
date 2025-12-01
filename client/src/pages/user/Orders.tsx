@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { Package, ChevronRight, Clock, CheckCircle, Truck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -49,7 +49,7 @@ export default function Orders() {
         <Package className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">View your orders</h2>
         <p className="text-muted-foreground mb-6">Please login to view your order history.</p>
-        <Link href="/user/login">
+        <Link to="/user/login">
           <Button data-testid="button-login">Login</Button>
         </Link>
       </div>
@@ -75,7 +75,7 @@ export default function Orders() {
         <Package className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">No orders yet</h2>
         <p className="text-muted-foreground mb-6">Start shopping to place your first order.</p>
-        <Link href="/sarees">
+        <Link to="/sarees">
           <Button data-testid="button-shop">Browse Sarees</Button>
         </Link>
       </div>
@@ -119,7 +119,7 @@ export default function Orders() {
                 <div className="space-y-4">
                   {order.items.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex gap-4">
-                      <Link href={`/sarees/${item.saree.id}`}>
+                      <Link to={`/sarees/${item.saree.id}`}>
                         <div className="w-16 h-20 rounded-md overflow-hidden bg-muted flex-shrink-0">
                           <img
                             src={item.saree.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=100&h=150&fit=crop"}
@@ -129,7 +129,7 @@ export default function Orders() {
                         </div>
                       </Link>
                       <div className="flex-1 min-w-0">
-                        <Link href={`/sarees/${item.saree.id}`}>
+                        <Link to={`/sarees/${item.saree.id}`}>
                           <h4 className="font-medium text-sm line-clamp-1 hover:text-primary">
                             {item.saree.name}
                           </h4>
@@ -156,7 +156,7 @@ export default function Orders() {
                       {formatPrice(order.totalAmount)}
                     </span>
                   </div>
-                  <Link href={`/user/orders/${order.id}`}>
+                  <Link to={`/user/orders/${order.id}`}>
                     <Button variant="ghost" size="sm" data-testid={`button-view-order-${order.id}`}>
                       View Details
                       <ChevronRight className="h-4 w-4 ml-1" />

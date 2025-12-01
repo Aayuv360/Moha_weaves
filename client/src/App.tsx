@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -18,6 +18,7 @@ import Orders from "@/pages/user/Orders";
 import Checkout from "@/pages/user/Checkout";
 import UserLogin from "@/pages/user/Login";
 import UserRegister from "@/pages/user/Register";
+import Addresses from "@/pages/user/Addresses";
 
 import AdminLogin from "@/pages/admin/Login";
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -54,7 +55,7 @@ function UserLayout({ children }: { children: React.ReactNode }) {
 }
 
 function Router() {
-  const [location] = useLocation();
+  const location = useLocation();
   const { user, isLoading } = useAuth();
   
   const isAuthPage = [
@@ -63,13 +64,13 @@ function Router() {
     "/admin/login",
     "/inventory/login",
     "/store/login",
-  ].includes(location);
+  ].includes(location.pathname);
 
   const isDashboardPage = [
     "/admin/dashboard",
     "/inventory/dashboard",
     "/store/dashboard",
-  ].some((path) => location.startsWith(path.replace("/dashboard", "")));
+  ].some((path) => location.pathname.startsWith(path.replace("/dashboard", "")));
 
   if (isLoading) {
     return (
@@ -83,65 +84,66 @@ function Router() {
 
   if (isAuthPage || isDashboardPage) {
     return (
-      <Switch>
+      <Routes>
         {/* User auth */}
-        <Route path="/user/login" component={UserLogin} />
-        <Route path="/user/register" component={UserRegister} />
+        <Route path="/user/login" element={<UserLogin />} />
+        <Route path="/user/register" element={<UserRegister />} />
         
         {/* Admin module */}
-        <Route path="/admin/login" component={AdminLogin} />
-        <Route path="/admin/dashboard" component={AdminDashboard} />
-        <Route path="/admin/sarees" component={AdminSarees} />
-        <Route path="/admin/categories" component={AdminCategories} />
-        <Route path="/admin/colors" component={AdminColors} />
-        <Route path="/admin/fabrics" component={AdminFabrics} />
-        <Route path="/admin/users" component={AdminUsers} />
-        <Route path="/admin/staff" component={AdminStaff} />
-        <Route path="/admin/stores" component={AdminStores} />
-        <Route path="/admin/orders" component={AdminOrders} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/sarees" element={<AdminSarees />} />
+        <Route path="/admin/categories" element={<AdminCategories />} />
+        <Route path="/admin/colors" element={<AdminColors />} />
+        <Route path="/admin/fabrics" element={<AdminFabrics />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/staff" element={<AdminStaff />} />
+        <Route path="/admin/stores" element={<AdminStores />} />
+        <Route path="/admin/orders" element={<AdminOrders />} />
         
         {/* Inventory module */}
-        <Route path="/inventory/login" component={InventoryLogin} />
-        <Route path="/inventory/dashboard" component={InventoryDashboard} />
-        <Route path="/inventory/stock" component={InventoryStock} />
-        <Route path="/inventory/requests" component={InventoryRequests} />
-        <Route path="/inventory/orders" component={InventoryOrders} />
+        <Route path="/inventory/login" element={<InventoryLogin />} />
+        <Route path="/inventory/dashboard" element={<InventoryDashboard />} />
+        <Route path="/inventory/stock" element={<InventoryStock />} />
+        <Route path="/inventory/requests" element={<InventoryRequests />} />
+        <Route path="/inventory/orders" element={<InventoryOrders />} />
         
         {/* Store module */}
-        <Route path="/store/login" component={StoreLogin} />
-        <Route path="/store/dashboard" component={StoreDashboard} />
-        <Route path="/store/sale" component={StoreSale} />
-        <Route path="/store/inventory" component={StoreInventoryPage} />
-        <Route path="/store/requests" component={StoreRequests} />
-        <Route path="/store/history" component={StoreHistory} />
+        <Route path="/store/login" element={<StoreLogin />} />
+        <Route path="/store/dashboard" element={<StoreDashboard />} />
+        <Route path="/store/sale" element={<StoreSale />} />
+        <Route path="/store/inventory" element={<StoreInventoryPage />} />
+        <Route path="/store/requests" element={<StoreRequests />} />
+        <Route path="/store/history" element={<StoreHistory />} />
         
-        <Route component={NotFound} />
-      </Switch>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     );
   }
 
   return (
     <UserLayout>
-      <Switch>
+      <Routes>
         {/* User public pages */}
-        <Route path="/" component={Home} />
-        <Route path="/sarees" component={Sarees} />
-        <Route path="/sarees/:id" component={SareeDetail} />
-        <Route path="/categories" component={Categories} />
+        <Route path="/" element={<Home />} />
+        <Route path="/sarees" element={<Sarees />} />
+        <Route path="/sarees/:id" element={<SareeDetail />} />
+        <Route path="/categories" element={<Categories />} />
         
         {/* User auth pages */}
-        <Route path="/user/login" component={UserLogin} />
-        <Route path="/user/register" component={UserRegister} />
+        <Route path="/user/login" element={<UserLogin />} />
+        <Route path="/user/register" element={<UserRegister />} />
         
         {/* User protected pages */}
-        <Route path="/user/cart" component={Cart} />
-        <Route path="/user/wishlist" component={Wishlist} />
-        <Route path="/user/orders" component={Orders} />
-        <Route path="/user/checkout" component={Checkout} />
+        <Route path="/user/cart" element={<Cart />} />
+        <Route path="/user/wishlist" element={<Wishlist />} />
+        <Route path="/user/orders" element={<Orders />} />
+        <Route path="/user/checkout" element={<Checkout />} />
+        <Route path="/user/addresses" element={<Addresses />} />
         
         {/* Fallback */}
-        <Route component={NotFound} />
-      </Switch>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     </UserLayout>
   );
 }

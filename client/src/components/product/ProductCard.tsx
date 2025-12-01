@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { Heart, ShoppingBag, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -65,7 +65,7 @@ export function ProductCard({ saree, isInWishlist = false }: ProductCardProps) {
     <Card className="group overflow-visible border-0 shadow-none bg-transparent" data-testid={`card-product-${saree.id}`}>
       <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-muted">
         {/* Product image */}
-        <Link href={`/sarees/${saree.id}`}>
+        <Link to={`/sarees/${saree.id}`}>
           <img
             src={saree.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&h=600&fit=crop"}
             alt={saree.name}
@@ -99,7 +99,7 @@ export function ProductCard({ saree, isInWishlist = false }: ProductCardProps) {
               <Heart className={`h-4 w-4 ${isInWishlist ? "fill-primary text-primary" : ""}`} />
             </Button>
           )}
-          <Link href={`/sarees/${saree.id}`}>
+          <Link to={`/sarees/${saree.id}`}>
             <Button
               variant="secondary"
               size="icon"
@@ -129,7 +129,7 @@ export function ProductCard({ saree, isInWishlist = false }: ProductCardProps) {
 
       {/* Product info */}
       <div className="pt-4 space-y-1">
-        <Link href={`/sarees/${saree.id}`}>
+        <Link to={`/sarees/${saree.id}`}>
           <h3 className="font-medium text-sm line-clamp-2 hover:text-primary transition-colors" data-testid={`text-name-${saree.id}`}>
             {saree.name}
           </h3>

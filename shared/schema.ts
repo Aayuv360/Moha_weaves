@@ -149,6 +149,30 @@ export const storeSaleItems = pgTable("store_sale_items", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
 });
 
+// User addresses for delivery
+export const userAddresses = pgTable("user_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  locality: text("locality").notNull(),
+  city: text("city").notNull(),
+  pincode: text("pincode").notNull(),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Serviceable pincodes for delivery availability check
+export const serviceablePincodes = pgTable("serviceable_pincodes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pincode: text("pincode").notNull().unique(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  deliveryDays: integer("delivery_days").notNull().default(5),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Stock requests from stores
 export const stockRequests = pgTable("stock_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -171,6 +195,11 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   orders: many(orders),
   storeSales: many(storeSales),
   stockRequests: many(stockRequests),
+  addresses: many(userAddresses),
+}));
+
+export const userAddressesRelations = relations(userAddresses, ({ one }) => ({
+  user: one(users, { fields: [userAddresses.userId], references: [users.id] }),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -261,6 +290,8 @@ export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: t
 export const insertStoreSaleSchema = createInsertSchema(storeSales).omit({ id: true, createdAt: true });
 export const insertStoreSaleItemSchema = createInsertSchema(storeSaleItems).omit({ id: true });
 export const insertStockRequestSchema = createInsertSchema(stockRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserAddressSchema = createInsertSchema(userAddresses).omit({ id: true, createdAt: true });
+export const insertServiceablePincodeSchema = createInsertSchema(serviceablePincodes).omit({ id: true, createdAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -291,6 +322,10 @@ export type StoreSaleItem = typeof storeSaleItems.$inferSelect;
 export type InsertStoreSaleItem = z.infer<typeof insertStoreSaleItemSchema>;
 export type StockRequest = typeof stockRequests.$inferSelect;
 export type InsertStockRequest = z.infer<typeof insertStockRequestSchema>;
+export type UserAddress = typeof userAddresses.$inferSelect;
+export type InsertUserAddress = z.infer<typeof insertUserAddressSchema>;
+export type ServiceablePincode = typeof serviceablePincodes.$inferSelect;
+export type InsertServiceablePincode = z.infer<typeof insertServiceablePincodeSchema>;
 
 // Extended types for frontend use
 export type SareeWithDetails = Saree & {

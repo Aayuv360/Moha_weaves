@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ShoppingBag, CreditCard, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ const checkoutSchema = z.object({
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
 export default function Checkout() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -78,7 +78,7 @@ export default function Checkout() {
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
         <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Please login to checkout</h2>
-        <Link href="/user/login">
+        <Link to="/user/login">
           <Button data-testid="button-login">Login</Button>
         </Link>
       </div>
@@ -102,7 +102,7 @@ export default function Checkout() {
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
         <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Your cart is empty</h2>
-        <Link href="/sarees">
+        <Link to="/sarees">
           <Button data-testid="button-shop">Continue Shopping</Button>
         </Link>
       </div>
@@ -121,10 +121,10 @@ export default function Checkout() {
           Order ID: <span className="font-medium" data-testid="text-order-id">#{orderId.slice(0, 8).toUpperCase()}</span>
         </p>
         <div className="flex flex-col gap-3">
-          <Link href={`/user/orders/${orderId}`}>
+          <Link to={`/user/orders/${orderId}`}>
             <Button className="w-full" data-testid="button-view-order">View Order</Button>
           </Link>
-          <Link href="/sarees">
+          <Link to="/sarees">
             <Button variant="outline" className="w-full" data-testid="button-continue-shopping">
               Continue Shopping
             </Button>
@@ -148,7 +148,7 @@ export default function Checkout() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <Link href="/user/cart">
+      <Link to="/user/cart">
         <Button variant="ghost" className="mb-6" data-testid="button-back">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Cart

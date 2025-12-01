@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -58,7 +58,7 @@ export default function Wishlist() {
         <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Your wishlist is waiting</h2>
         <p className="text-muted-foreground mb-6">Please login to view your wishlist.</p>
-        <Link href="/user/login">
+        <Link to="/user/login">
           <Button data-testid="button-login">Login</Button>
         </Link>
       </div>
@@ -88,7 +88,7 @@ export default function Wishlist() {
         <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2">Your wishlist is empty</h2>
         <p className="text-muted-foreground mb-6">Start adding items you love to your wishlist.</p>
-        <Link href="/sarees">
+        <Link to="/sarees">
           <Button data-testid="button-shop">Browse Sarees</Button>
         </Link>
       </div>
@@ -110,7 +110,7 @@ export default function Wishlist() {
           return (
             <Card key={item.id} className="group overflow-visible border-0 shadow-none bg-transparent" data-testid={`card-wishlist-item-${item.id}`}>
               <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-muted">
-                <Link href={`/sarees/${saree.id}`}>
+                <Link to={`/sarees/${saree.id}`}>
                   <img
                     src={saree.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&h=600&fit=crop"}
                     alt={saree.name}
@@ -145,7 +145,7 @@ export default function Wishlist() {
               </div>
 
               <div className="pt-4 space-y-1">
-                <Link href={`/sarees/${saree.id}`}>
+                <Link to={`/sarees/${saree.id}`}>
                   <h3 className="font-medium text-sm line-clamp-2 hover:text-primary transition-colors">
                     {saree.name}
                   </h3>

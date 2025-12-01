@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function UserRegister() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { register } = useAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -53,7 +53,7 @@ export default function UserRegister() {
       });
       if (result.success) {
         toast({ title: "Welcome to Moha!", description: "Your account has been created successfully." });
-        setLocation("/");
+        navigate("/");
       } else {
         toast({ title: "Registration failed", description: result.error, variant: "destructive" });
       }
@@ -66,7 +66,7 @@ export default function UserRegister() {
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="font-serif text-3xl font-semibold text-primary">
+          <Link to="/" className="font-serif text-3xl font-semibold text-primary">
             Moha
           </Link>
           <p className="text-muted-foreground mt-2">Begin your saree journey with us</p>
@@ -215,7 +215,7 @@ export default function UserRegister() {
           <CardFooter>
             <p className="text-sm text-center text-muted-foreground w-full">
               Already have an account?{" "}
-              <Link href="/user/login" className="text-primary hover:underline" data-testid="link-login">
+              <Link to="/user/login" className="text-primary hover:underline" data-testid="link-login">
                 Sign in
               </Link>
             </p>

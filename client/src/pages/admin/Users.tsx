@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Package,
   LayoutDashboard,
@@ -49,7 +49,7 @@ const navItems = [
 type SafeUser = Omit<User, "password">;
 
 export default function AdminUsers() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,7 +60,7 @@ export default function AdminUsers() {
 
   const handleLogout = async () => {
     await logout();
-    setLocation("/admin/login");
+    navigate("/admin/login");
   };
 
   const filteredUsers = users?.filter(
@@ -82,7 +82,7 @@ export default function AdminUsers() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-4">Access Denied</h2>
-          <Link href="/admin/login">
+          <Link to="/admin/login">
             <Button>Go to Admin Login</Button>
           </Link>
         </div>
@@ -93,13 +93,13 @@ export default function AdminUsers() {
   const Sidebar = () => (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b">
-        <Link href="/" className="font-serif text-xl font-semibold text-primary">
+        <Link to="/" className="font-serif text-xl font-semibold text-primary">
           Moha Admin
         </Link>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
+          <Link key={item.href} to={item.href}>
             <Button
               variant={item.href === "/admin/users" ? "secondary" : "ghost"}
               className="w-full justify-start gap-3"

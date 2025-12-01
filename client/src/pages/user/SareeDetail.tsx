@@ -1,4 +1,4 @@
-import { useParams, Link } from "wouter";
+import { useParams, Link } from "react-router-dom";
 import { Heart, ShoppingBag, Minus, Plus, ArrowLeft, Truck, RefreshCw, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { useState } from "react";
 import type { SareeWithDetails } from "@shared/schema";
 
 export default function SareeDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -96,7 +96,7 @@ export default function SareeDetail() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
         <h2 className="text-2xl font-semibold mb-4">Product not found</h2>
-        <Link href="/sarees">
+        <Link to="/sarees">
           <Button variant="outline" data-testid="button-back-to-shop">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Shop
@@ -118,9 +118,9 @@ export default function SareeDetail() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/" className="hover:text-primary">Home</Link>
+        <Link to="/" className="hover:text-primary">Home</Link>
         <span>/</span>
-        <Link href="/sarees" className="hover:text-primary">Sarees</Link>
+        <Link to="/sarees" className="hover:text-primary">Sarees</Link>
         <span>/</span>
         <span className="text-foreground">{saree.name}</span>
       </nav>
@@ -267,7 +267,7 @@ export default function SareeDetail() {
               <p className="text-sm text-muted-foreground mb-3">
                 Please login to add items to cart or wishlist.
               </p>
-              <Link href="/user/login">
+              <Link to="/user/login">
                 <Button data-testid="button-login-prompt">Login to Continue</Button>
               </Link>
             </div>

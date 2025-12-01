@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation } from "react-router-dom";
 import { Filter, SlidersHorizontal, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +25,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { SareeWithDetails, Category, Color, Fabric } from "@shared/schema";
 
 export default function Sarees() {
-  const [location] = useLocation();
-  const searchParams = new URLSearchParams(location.split("?")[1] || "");
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
   
   const [filters, setFilters] = useState({
     search: searchParams.get("search") || "",

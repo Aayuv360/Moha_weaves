@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function InventoryLogin() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { login } = useAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -39,7 +39,7 @@ export default function InventoryLogin() {
       const result = await login(values.email, values.password, "inventory");
       if (result.success) {
         toast({ title: "Welcome!", description: "You have successfully logged in." });
-        setLocation("/inventory/dashboard");
+        navigate("/inventory/dashboard");
       } else {
         toast({ title: "Login failed", description: result.error, variant: "destructive" });
       }
@@ -133,7 +133,7 @@ export default function InventoryLogin() {
             </Form>
           </CardContent>
           <CardFooter className="justify-center">
-            <Link href="/" className="text-sm text-muted-foreground hover:text-primary">
+            <Link to="/" className="text-sm text-muted-foreground hover:text-primary">
               Back to Store
             </Link>
           </CardFooter>
