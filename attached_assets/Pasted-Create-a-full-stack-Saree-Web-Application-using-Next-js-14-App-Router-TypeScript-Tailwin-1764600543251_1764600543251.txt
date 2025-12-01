@@ -1,0 +1,126 @@
+Create a full-stack Saree Web Application using:
+• Next.js 14 (App Router)
+• TypeScript
+• Tailwind CSS
+• Prisma ORM + PostgreSQL
+• JWT Authentication (HTTPOnly cookies)
+
+The project must have role-based modules.
+A module means a full folder that contains:
+• its own login
+• its own components
+• its own routes
+• its own dashboard
+• its own API routes
+
+⸻
+
+📌 Required Modules (4 Total)
+
+User Module
+Folder: /app/(user)/
+Contains:
+• /user/login
+• /user/register
+• /user/dashboard
+• User-related components (cards, profile, product list)
+• User API routes: /api/user/*
+
+Functions:
+• Login, register
+• Browse sarees
+• Wishlist
+• Cart
+• Place orders
+• View order history
+
+⸻
+
+Admin Module
+Folder: /app/(admin)/
+Contains:
+• /admin/login
+• /admin/dashboard
+• Admin-only components
+• Admin API routes: /api/admin/*
+
+Admin can:
+• Manage users
+• Manage store managers
+• Manage inventory staff
+• Manage categories, colors, fabrics, prices
+• Manage saree items
+
+⸻
+
+Inventory Module
+Folder: /app/(inventory)/
+Contains:
+• /inventory/login
+• /inventory/dashboard
+• Inventory components
+• Inventory API routes: /api/inventory/*
+
+Inventory staff can:
+• Add saree items
+• Update stock
+• Delete items
+• View store item requests
+• Approve/dispatch items
+
+⸻
+
+Store Module
+Folder: /app/(store)/
+Contains:
+• /store/login
+• /store/dashboard
+• Store components
+• Store API routes: /api/store/*
+
+Store manager can:
+• View inventory
+• Request items
+• Track item status
+• Manage store orders
+
+⸻
+
+🔐 AUTHENTICATION
+
+Use:
+• bcryptjs
+• jsonwebtoken
+• Token in HTTPOnly cookie
+
+Create four separate middlewares:
+• authUser
+• authAdmin
+• authInventory
+• authStore
+
+Each module must only access its own protected pages.
+/app
+/(user)/user/login
+/(user)/user/register
+/(user)/user/dashboard
+
+/(admin)/admin/login
+/(admin)/admin/dashboard
+
+/(inventory)/inventory/login
+/(inventory)/inventory/dashboard
+
+/(store)/store/login
+/(store)/store/dashboard
+
+/api
+/user/*
+/admin/*
+/inventory/*
+/store/*
+
+/modules/user
+/modules/admin
+/modules/inventory
+/modules/store
