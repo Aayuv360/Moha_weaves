@@ -136,3 +136,29 @@ Sarees can be assigned to three distribution modes:
 ## Commands
 - `npm run dev` - Start development server
 - `npm run db:push` - Push schema to database
+
+## Data-Testid Convention
+All interactive elements have data-testid attributes for E2E testing:
+
+### Navigation Elements
+- `nav-{label}` - Sidebar navigation buttons (e.g., `nav-stock-management`, `nav-new-sale`)
+- `button-mobile-menu` - Mobile menu toggle button
+- `button-logout` - Logout button
+
+### User Info Display
+- `text-user-name` - User's name in sidebar
+- `text-user-email` - User's email in sidebar
+- `text-page-title` - Page title heading
+
+### Form Elements
+- `input-{field}` - Input fields (e.g., `input-email`, `input-password`, `input-search`)
+- `select-{field}` - Select dropdowns (e.g., `select-filter-status`, `select-channel-{id}`)
+- `button-{action}` - Action buttons (e.g., `button-submit`, `button-save-stock`)
+
+### Data Rows
+- `row-{type}-{id}` - Table rows (e.g., `row-stock-{id}`, `row-order-{id}`, `row-sale-{id}`)
+
+## Recent Changes (December 2024)
+- Added comprehensive data-testid attributes across all inventory and store module pages
+- Implemented consistent navigation pattern across Inventory and Store modules with sidebar buttons
+- E2E tests passing for navigation, login/logout, and page transitions in both modules
