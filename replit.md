@@ -44,10 +44,11 @@ Moha is a full-stack saree e-commerce platform with role-based access for Users,
 - Manage users (create/update)
 - Manage categories, colors, fabrics
 - Manage store outlets
-- Manage saree inventory
+- View saree stock details (read-only)
 - View all orders
 
 ### 3. Inventory Staff
+- **Full saree management (Add/Edit/Delete sarees)**
 - View low stock items
 - Manage stock levels
 - Update distribution channels (online/shop/both)
@@ -114,13 +115,16 @@ Sarees can be assigned to three distribution modes:
 ### Admin (Protected)
 - `GET /api/admin/stats` - Dashboard stats
 - `GET/POST /api/admin/users` - User management
-- `CRUD /api/admin/sarees` - Saree management
+- `GET /api/admin/sarees` - View sarees (read-only)
 - `CRUD /api/admin/categories` - Category management
 
 ### Inventory (Protected)
+- `GET/POST /api/inventory/sarees` - Saree management (Add/View)
+- `PATCH/DELETE /api/inventory/sarees/:id` - Saree management (Edit/Delete)
 - `GET /api/inventory/low-stock` - Low stock alerts
 - `GET/PATCH /api/inventory/requests` - Stock requests
 - `PATCH /api/inventory/sarees/:id/distribution` - Update channel
+- `PATCH /api/inventory/sarees/:id/stock` - Update stock levels
 
 ### Store (Protected)
 - `GET /api/store/stats` - Store dashboard
@@ -186,3 +190,7 @@ All user addresses are validated with:
 - Added comprehensive data-testid attributes across all inventory and store module pages
 - Implemented consistent navigation pattern across Inventory and Store modules with sidebar buttons
 - E2E tests passing for navigation, login/logout, and page transitions in both modules
+- **Moved saree management (Add/Edit/Delete) from Admin to Inventory module**
+- Admin sarees page now shows read-only stock overview
+- Added distinct navigation icons: Shirt icon for Sarees, Warehouse icon for Stock Management
+- All inventory saree endpoints protected with authInventory middleware
