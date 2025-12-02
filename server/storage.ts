@@ -2,6 +2,8 @@ import {
   users, categories, colors, fabrics, stores, sarees, storeInventory,
   wishlist, cart, orders, orderItems, storeSales, storeSaleItems, stockRequests,
   userAddresses, serviceablePincodes,
+  returnRequests, returnItems, refunds, productReviews, coupons, couponUsage,
+  notifications, orderStatusHistory,
   type User, type InsertUser, type Category, type InsertCategory,
   type Color, type InsertColor, type Fabric, type InsertFabric,
   type Store, type InsertStore, type Saree, type InsertSaree,
@@ -13,8 +15,14 @@ import {
   type StockRequest, type InsertStockRequest,
   type UserAddress, type InsertUserAddress,
   type ServiceablePincode, type InsertServiceablePincode,
+  type ReturnRequest, type InsertReturnRequest, type ReturnItem, type InsertReturnItem,
+  type Refund, type InsertRefund, type ProductReview, type InsertProductReview,
+  type Coupon, type InsertCoupon, type CouponUsage, type InsertCouponUsage,
+  type Notification, type InsertNotification,
+  type OrderStatusHistory, type InsertOrderStatusHistory,
   type SareeWithDetails, type CartItemWithSaree, type WishlistItemWithSaree,
   type OrderWithItems, type StockRequestWithDetails, type StoreSaleWithItems,
+  type ReturnRequestWithDetails, type SareeWithReviews, type CouponWithUsage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, ilike, desc, asc, sql, gte, lte, inArray } from "drizzle-orm";
@@ -160,6 +168,53 @@ export interface IStorage {
   createServiceablePincode(pincode: InsertServiceablePincode): Promise<ServiceablePincode>;
   updateServiceablePincode(id: string, data: Partial<InsertServiceablePincode>): Promise<ServiceablePincode | undefined>;
   deleteServiceablePincode(id: string): Promise<boolean>;
+
+  // Return Requests
+  getReturnRequests(filters?: { userId?: string; status?: string }): Promise<ReturnRequestWithDetails[]>;
+  getReturnRequest(id: string): Promise<ReturnRequestWithDetails | undefined>;
+  createReturnRequest(request: InsertReturnRequest, items: InsertReturnItem[]): Promise<ReturnRequest>;
+  updateReturnRequestStatus(id: string, status: string, processedBy?: string, adminNotes?: string): Promise<ReturnRequest | undefined>;
+  getUserReturnRequests(userId: string): Promise<ReturnRequestWithDetails[]>;
+  checkOrderReturnEligibility(orderId: string): Promise<{ eligible: boolean; reason?: string }>;
+
+  // Refunds
+  getRefunds(filters?: { userId?: string; status?: string }): Promise<Refund[]>;
+  getRefund(id: string): Promise<Refund | undefined>;
+  createRefund(refund: InsertRefund): Promise<Refund>;
+  updateRefundStatus(id: string, status: string, processedAt?: Date, transactionId?: string): Promise<Refund | undefined>;
+  getRefundByReturnRequest(returnRequestId: string): Promise<Refund | undefined>;
+
+  // Product Reviews
+  getProductReviews(sareeId: string, filters?: { status?: string }): Promise<ProductReview[]>;
+  getReview(id: string): Promise<ProductReview | undefined>;
+  createReview(review: InsertProductReview): Promise<ProductReview>;
+  updateReviewStatus(id: string, status: string): Promise<ProductReview | undefined>;
+  getUserReviews(userId: string): Promise<ProductReview[]>;
+  getSareeWithReviews(sareeId: string): Promise<SareeWithReviews | undefined>;
+  canUserReviewProduct(userId: string, sareeId: string): Promise<boolean>;
+  getAllReviews(filters?: { status?: string; limit?: number }): Promise<(ProductReview & { saree: SareeWithDetails })[]>;
+
+  // Coupons
+  getCoupons(filters?: { isActive?: boolean }): Promise<CouponWithUsage[]>;
+  getCoupon(id: string): Promise<Coupon | undefined>;
+  getCouponByCode(code: string): Promise<Coupon | undefined>;
+  createCoupon(coupon: InsertCoupon): Promise<Coupon>;
+  updateCoupon(id: string, data: Partial<InsertCoupon>): Promise<Coupon | undefined>;
+  deleteCoupon(id: string): Promise<boolean>;
+  validateCoupon(code: string, userId: string, orderAmount: number): Promise<{ valid: boolean; coupon?: Coupon; error?: string }>;
+  applyCoupon(couponId: string, userId: string, orderId: string, discountAmount: string): Promise<CouponUsage>;
+
+  // Notifications
+  getNotifications(userId: string, unreadOnly?: boolean): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: string): Promise<Notification | undefined>;
+  markAllNotificationsAsRead(userId: string): Promise<boolean>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+
+  // Order Status History
+  getOrderStatusHistory(orderId: string): Promise<OrderStatusHistory[]>;
+  addOrderStatusHistory(entry: InsertOrderStatusHistory): Promise<OrderStatusHistory>;
+  updateOrderWithStatusHistory(orderId: string, status: string, changedBy?: string, notes?: string): Promise<Order | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1115,6 +1170,469 @@ export class DatabaseStorage implements IStorage {
   async deleteServiceablePincode(id: string): Promise<boolean> {
     await db.delete(serviceablePincodes).where(eq(serviceablePincodes.id, id));
     return true;
+  }
+
+  // Return Requests
+  async getReturnRequests(filters?: { userId?: string; status?: string }): Promise<ReturnRequestWithDetails[]> {
+    const conditions: any[] = [];
+    if (filters?.userId) conditions.push(eq(returnRequests.userId, filters.userId));
+    if (filters?.status) conditions.push(eq(returnRequests.status, filters.status as any));
+
+    const requests = await db
+      .select()
+      .from(returnRequests)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(returnRequests.createdAt));
+
+    const result: ReturnRequestWithDetails[] = [];
+    for (const request of requests) {
+      const orderWithItems = await this.getOrder(request.orderId);
+      const user = await this.getUser(request.userId);
+      const items = await db
+        .select()
+        .from(returnItems)
+        .innerJoin(orderItems, eq(returnItems.orderItemId, orderItems.id))
+        .innerJoin(sarees, eq(orderItems.sareeId, sarees.id))
+        .leftJoin(categories, eq(sarees.categoryId, categories.id))
+        .leftJoin(colors, eq(sarees.colorId, colors.id))
+        .leftJoin(fabrics, eq(sarees.fabricId, fabrics.id))
+        .where(eq(returnItems.returnRequestId, request.id));
+
+      const [refund] = await db.select().from(refunds).where(eq(refunds.returnRequestId, request.id));
+
+      if (orderWithItems && user) {
+        result.push({
+          ...request,
+          order: orderWithItems,
+          user,
+          items: items.map(item => ({
+            ...item.return_items,
+            orderItem: {
+              ...item.order_items,
+              saree: {
+                ...item.sarees,
+                category: item.categories,
+                color: item.colors,
+                fabric: item.fabrics,
+              },
+            },
+          })),
+          refund: refund || undefined,
+        });
+      }
+    }
+    return result;
+  }
+
+  async getReturnRequest(id: string): Promise<ReturnRequestWithDetails | undefined> {
+    const [request] = await db.select().from(returnRequests).where(eq(returnRequests.id, id));
+    if (!request) return undefined;
+
+    const orderWithItems = await this.getOrder(request.orderId);
+    const user = await this.getUser(request.userId);
+    if (!orderWithItems || !user) return undefined;
+
+    const items = await db
+      .select()
+      .from(returnItems)
+      .innerJoin(orderItems, eq(returnItems.orderItemId, orderItems.id))
+      .innerJoin(sarees, eq(orderItems.sareeId, sarees.id))
+      .leftJoin(categories, eq(sarees.categoryId, categories.id))
+      .leftJoin(colors, eq(sarees.colorId, colors.id))
+      .leftJoin(fabrics, eq(sarees.fabricId, fabrics.id))
+      .where(eq(returnItems.returnRequestId, request.id));
+
+    const [refund] = await db.select().from(refunds).where(eq(refunds.returnRequestId, request.id));
+
+    return {
+      ...request,
+      order: orderWithItems,
+      user,
+      items: items.map(item => ({
+        ...item.return_items,
+        orderItem: {
+          ...item.order_items,
+          saree: {
+            ...item.sarees,
+            category: item.categories,
+            color: item.colors,
+            fabric: item.fabrics,
+          },
+        },
+      })),
+      refund: refund || undefined,
+    };
+  }
+
+  async createReturnRequest(request: InsertReturnRequest, items: InsertReturnItem[]): Promise<ReturnRequest> {
+    return await db.transaction(async (tx) => {
+      const [newRequest] = await tx.insert(returnRequests).values(request).returning();
+      
+      for (const item of items) {
+        await tx.insert(returnItems).values({
+          ...item,
+          returnRequestId: newRequest.id,
+        });
+      }
+      
+      return newRequest;
+    });
+  }
+
+  async updateReturnRequestStatus(id: string, status: string, processedBy?: string, adminNotes?: string): Promise<ReturnRequest | undefined> {
+    const updateData: any = { status };
+    if (processedBy) updateData.processedBy = processedBy;
+    if (adminNotes) updateData.adminNotes = adminNotes;
+    if (status === "approved" || status === "rejected") {
+      updateData.processedAt = new Date();
+    }
+    
+    const [result] = await db.update(returnRequests).set(updateData).where(eq(returnRequests.id, id)).returning();
+    return result || undefined;
+  }
+
+  async getUserReturnRequests(userId: string): Promise<ReturnRequestWithDetails[]> {
+    return this.getReturnRequests({ userId });
+  }
+
+  async checkOrderReturnEligibility(orderId: string): Promise<{ eligible: boolean; reason?: string }> {
+    const order = await this.getOrder(orderId);
+    if (!order) return { eligible: false, reason: "Order not found" };
+    if (order.status !== "delivered") return { eligible: false, reason: "Order must be delivered to initiate return" };
+    if (!order.isReturnEligibleUntil) return { eligible: false, reason: "Return window not set" };
+    if (new Date() > new Date(order.isReturnEligibleUntil)) {
+      return { eligible: false, reason: "Return window has expired" };
+    }
+    
+    const existingReturns = await db
+      .select()
+      .from(returnRequests)
+      .where(and(eq(returnRequests.orderId, orderId), inArray(returnRequests.status, ["requested", "approved", "in_transit", "inspection", "completed"])));
+    
+    if (existingReturns.length > 0) {
+      return { eligible: false, reason: "A return request already exists for this order" };
+    }
+    
+    return { eligible: true };
+  }
+
+  // Refunds
+  async getRefunds(filters?: { userId?: string; status?: string }): Promise<Refund[]> {
+    const conditions: any[] = [];
+    if (filters?.userId) conditions.push(eq(refunds.userId, filters.userId));
+    if (filters?.status) conditions.push(eq(refunds.status, filters.status as any));
+    
+    return db
+      .select()
+      .from(refunds)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(refunds.createdAt));
+  }
+
+  async getRefund(id: string): Promise<Refund | undefined> {
+    const [result] = await db.select().from(refunds).where(eq(refunds.id, id));
+    return result || undefined;
+  }
+
+  async createRefund(refund: InsertRefund): Promise<Refund> {
+    const [result] = await db.insert(refunds).values(refund).returning();
+    return result;
+  }
+
+  async updateRefundStatus(id: string, status: string, processedAt?: Date, transactionId?: string): Promise<Refund | undefined> {
+    const updateData: any = { status };
+    if (processedAt) updateData.processedAt = processedAt;
+    if (transactionId) updateData.transactionId = transactionId;
+    
+    const [result] = await db.update(refunds).set(updateData).where(eq(refunds.id, id)).returning();
+    return result || undefined;
+  }
+
+  async getRefundByReturnRequest(returnRequestId: string): Promise<Refund | undefined> {
+    const [result] = await db.select().from(refunds).where(eq(refunds.returnRequestId, returnRequestId));
+    return result || undefined;
+  }
+
+  // Product Reviews
+  async getProductReviews(sareeId: string, filters?: { status?: string }): Promise<ProductReview[]> {
+    const conditions = [eq(productReviews.sareeId, sareeId)];
+    if (filters?.status) conditions.push(eq(productReviews.status, filters.status as any));
+    
+    return db
+      .select()
+      .from(productReviews)
+      .where(and(...conditions))
+      .orderBy(desc(productReviews.createdAt));
+  }
+
+  async getReview(id: string): Promise<ProductReview | undefined> {
+    const [result] = await db.select().from(productReviews).where(eq(productReviews.id, id));
+    return result || undefined;
+  }
+
+  async createReview(review: InsertProductReview): Promise<ProductReview> {
+    const [result] = await db.insert(productReviews).values(review).returning();
+    return result;
+  }
+
+  async updateReviewStatus(id: string, status: string): Promise<ProductReview | undefined> {
+    const [result] = await db.update(productReviews).set({ status: status as any }).where(eq(productReviews.id, id)).returning();
+    return result || undefined;
+  }
+
+  async getUserReviews(userId: string): Promise<ProductReview[]> {
+    return db
+      .select()
+      .from(productReviews)
+      .where(eq(productReviews.userId, userId))
+      .orderBy(desc(productReviews.createdAt));
+  }
+
+  async getSareeWithReviews(sareeId: string): Promise<SareeWithReviews | undefined> {
+    const saree = await this.getSaree(sareeId);
+    if (!saree) return undefined;
+
+    const reviews = await this.getProductReviews(sareeId, { status: "approved" });
+    const avgRating = reviews.length > 0 
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
+      : 0;
+
+    return {
+      ...saree,
+      reviews,
+      averageRating: avgRating,
+      reviewCount: reviews.length,
+    };
+  }
+
+  async canUserReviewProduct(userId: string, sareeId: string): Promise<boolean> {
+    const deliveredOrders = await db
+      .select()
+      .from(orders)
+      .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+      .where(and(eq(orders.userId, userId), eq(orders.status, "delivered"), eq(orderItems.sareeId, sareeId)));
+    
+    if (deliveredOrders.length === 0) return false;
+
+    const existingReview = await db
+      .select()
+      .from(productReviews)
+      .where(and(eq(productReviews.userId, userId), eq(productReviews.sareeId, sareeId)));
+    
+    return existingReview.length === 0;
+  }
+
+  async getAllReviews(filters?: { status?: string; limit?: number }): Promise<(ProductReview & { saree: SareeWithDetails })[]> {
+    const conditions: any[] = [];
+    if (filters?.status) conditions.push(eq(productReviews.status, filters.status as any));
+    
+    const reviews = await db
+      .select()
+      .from(productReviews)
+      .innerJoin(sarees, eq(productReviews.sareeId, sarees.id))
+      .leftJoin(categories, eq(sarees.categoryId, categories.id))
+      .leftJoin(colors, eq(sarees.colorId, colors.id))
+      .leftJoin(fabrics, eq(sarees.fabricId, fabrics.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(productReviews.createdAt))
+      .limit(filters?.limit || 100);
+
+    return reviews.map(row => ({
+      ...row.product_reviews,
+      saree: {
+        ...row.sarees,
+        category: row.categories,
+        color: row.colors,
+        fabric: row.fabrics,
+      },
+    }));
+  }
+
+  // Coupons
+  async getCoupons(filters?: { isActive?: boolean }): Promise<CouponWithUsage[]> {
+    const conditions: any[] = [];
+    if (filters?.isActive !== undefined) conditions.push(eq(coupons.isActive, filters.isActive));
+    
+    const couponList = await db
+      .select()
+      .from(coupons)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(coupons.createdAt));
+
+    const result: CouponWithUsage[] = [];
+    for (const coupon of couponList) {
+      const [usage] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(couponUsage)
+        .where(eq(couponUsage.couponId, coupon.id));
+      
+      result.push({
+        ...coupon,
+        usageCount: usage?.count || 0,
+      });
+    }
+    return result;
+  }
+
+  async getCoupon(id: string): Promise<Coupon | undefined> {
+    const [result] = await db.select().from(coupons).where(eq(coupons.id, id));
+    return result || undefined;
+  }
+
+  async getCouponByCode(code: string): Promise<Coupon | undefined> {
+    const [result] = await db.select().from(coupons).where(eq(coupons.code, code.toUpperCase()));
+    return result || undefined;
+  }
+
+  async createCoupon(coupon: InsertCoupon): Promise<Coupon> {
+    const [result] = await db.insert(coupons).values({
+      ...coupon,
+      code: coupon.code.toUpperCase(),
+    }).returning();
+    return result;
+  }
+
+  async updateCoupon(id: string, data: Partial<InsertCoupon>): Promise<Coupon | undefined> {
+    if (data.code) data.code = data.code.toUpperCase();
+    const [result] = await db.update(coupons).set(data).where(eq(coupons.id, id)).returning();
+    return result || undefined;
+  }
+
+  async deleteCoupon(id: string): Promise<boolean> {
+    await db.update(coupons).set({ isActive: false }).where(eq(coupons.id, id));
+    return true;
+  }
+
+  async validateCoupon(code: string, userId: string, orderAmount: number): Promise<{ valid: boolean; coupon?: Coupon; error?: string }> {
+    const coupon = await this.getCouponByCode(code);
+    if (!coupon) return { valid: false, error: "Coupon not found" };
+    if (!coupon.isActive) return { valid: false, error: "Coupon is not active" };
+    
+    const now = new Date();
+    if (coupon.validFrom && now < new Date(coupon.validFrom)) {
+      return { valid: false, error: "Coupon is not yet valid" };
+    }
+    if (coupon.validUntil && now > new Date(coupon.validUntil)) {
+      return { valid: false, error: "Coupon has expired" };
+    }
+    
+    if (coupon.maxUsage) {
+      const [totalUsage] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(couponUsage)
+        .where(eq(couponUsage.couponId, coupon.id));
+      
+      if (totalUsage && totalUsage.count >= coupon.maxUsage) {
+        return { valid: false, error: "Coupon usage limit reached" };
+      }
+    }
+    
+    if (coupon.maxUsagePerUser) {
+      const [userUsage] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(couponUsage)
+        .where(and(eq(couponUsage.couponId, coupon.id), eq(couponUsage.userId, userId)));
+      
+      if (userUsage && userUsage.count >= coupon.maxUsagePerUser) {
+        return { valid: false, error: "You have already used this coupon the maximum number of times" };
+      }
+    }
+    
+    if (coupon.minOrderAmount && orderAmount < parseFloat(coupon.minOrderAmount)) {
+      return { valid: false, error: `Minimum order amount of ₹${coupon.minOrderAmount} required` };
+    }
+    
+    return { valid: true, coupon };
+  }
+
+  async applyCoupon(couponId: string, userId: string, orderId: string, discountAmount: string): Promise<CouponUsage> {
+    const [result] = await db.insert(couponUsage).values({
+      couponId,
+      userId,
+      orderId,
+      discountAmount,
+    }).returning();
+    return result;
+  }
+
+  // Notifications
+  async getNotifications(userId: string, unreadOnly?: boolean): Promise<Notification[]> {
+    const conditions = [eq(notifications.userId, userId)];
+    if (unreadOnly) conditions.push(eq(notifications.isRead, false));
+    
+    return db
+      .select()
+      .from(notifications)
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [result] = await db.insert(notifications).values(notification).returning();
+    return result;
+  }
+
+  async markNotificationAsRead(id: string): Promise<Notification | undefined> {
+    const [result] = await db
+      .update(notifications)
+      .set({ isRead: true, readAt: new Date() })
+      .where(eq(notifications.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<boolean> {
+    await db
+      .update(notifications)
+      .set({ isRead: true, readAt: new Date() })
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    return true;
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    return result?.count || 0;
+  }
+
+  // Order Status History
+  async getOrderStatusHistory(orderId: string): Promise<OrderStatusHistory[]> {
+    return db
+      .select()
+      .from(orderStatusHistory)
+      .where(eq(orderStatusHistory.orderId, orderId))
+      .orderBy(asc(orderStatusHistory.createdAt));
+  }
+
+  async addOrderStatusHistory(entry: InsertOrderStatusHistory): Promise<OrderStatusHistory> {
+    const [result] = await db.insert(orderStatusHistory).values(entry).returning();
+    return result;
+  }
+
+  async updateOrderWithStatusHistory(orderId: string, status: string, changedBy?: string, notes?: string): Promise<Order | undefined> {
+    return await db.transaction(async (tx) => {
+      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) return undefined;
+      
+      const previousStatus = order.status;
+      const [updatedOrder] = await tx
+        .update(orders)
+        .set({ status: status as any })
+        .where(eq(orders.id, orderId))
+        .returning();
+      
+      await tx.insert(orderStatusHistory).values({
+        orderId,
+        previousStatus,
+        newStatus: status,
+        changedBy,
+        notes,
+      });
+      
+      return updatedOrder || undefined;
+    });
   }
 }
 

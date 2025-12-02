@@ -193,6 +193,34 @@ All user addresses are validated with:
 - `POST /api/uploads/confirm` - Confirm upload and set public ACL
 - `GET /objects/:objectPath` - Serve uploaded files
 
+## New Features (December 2024)
+
+### Returns & Exchanges System
+- Users can request returns or exchanges for delivered orders within 7-day eligibility window
+- Return workflow: requested → approved → in_transit → inspection → completed
+- Exchange support with price difference handling
+- Returns page at `/user/returns` with status tracking
+- Order detail page at `/user/orders/:id` with return request dialog
+
+### Product Reviews System
+- Users can submit reviews with 1-5 star ratings
+- Reviews tab on product detail page
+- Review stats showing average rating and distribution
+- Verified purchase badges for reviews from actual buyers
+
+### Coupon System
+- Percentage and fixed-amount discount coupons
+- Coupon validation at checkout with real-time discount calculation
+- Coupon usage tracking per user
+- Min order amount and max discount limits
+- Usage limits (total and per-user)
+
+### Notifications System
+- Database-backed notification storage
+- Order status update notifications
+- Return/exchange status notifications
+- Refund processing notifications
+
 ## Recent Changes (December 2024)
 - **Fixed stock request status enum** - Changed from invalid "fulfilled" to proper statuses "dispatched" and "received" matching database enum
 - **Added store "Mark Received" action** - Store managers can now mark dispatched stock requests as received via new endpoint `/api/store/requests/:id/received`
@@ -208,7 +236,7 @@ All user addresses are validated with:
 - Seeded database with 20 serviceable pincodes for major Indian cities (Chennai, Delhi, Bangalore, Mumbai, Hyderabad, Kolkata, Ahmedabad)
 - Enhanced checkout page with saved address selection and inline address creation
 - Added delivery day estimates on checkout based on pincode availability
-- Updated user navigation menu (desktop dropdown and mobile) with links to Orders, Wishlist, and Addresses
+- Updated user navigation menu (desktop dropdown and mobile) with links to Orders, Wishlist, Returns, and Addresses
 - Added comprehensive data-testid attributes across all inventory and store module pages
 - Implemented consistent navigation pattern across Inventory and Store modules with sidebar buttons
 - E2E tests passing for navigation, login/logout, and page transitions in both modules
@@ -216,6 +244,9 @@ All user addresses are validated with:
 - Admin sarees page now shows read-only stock overview
 - Added distinct navigation icons: Shirt icon for Sarees, Warehouse icon for Stock Management
 - All inventory saree endpoints protected with authInventory middleware
+- **Added Returns & Exchanges system** with full workflow support
+- **Added Product Reviews** with ratings and stats
+- **Added Coupon System** with checkout integration
 
 ## Stock Request Workflow
 The stock request lifecycle follows these statuses:

@@ -1,11 +1,12 @@
 import { useParams, Link } from "react-router-dom";
-import { Heart, ShoppingBag, Minus, Plus, ArrowLeft, Truck, RefreshCw, Shield } from "lucide-react";
+import { Heart, ShoppingBag, Minus, Plus, ArrowLeft, Truck, RefreshCw, Shield, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductCard } from "@/components/product/ProductCard";
+import { Reviews } from "@/components/product/Reviews";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -296,6 +297,10 @@ export default function SareeDetail() {
         <TabsList>
           <TabsTrigger value="description" data-testid="tab-description">Description</TabsTrigger>
           <TabsTrigger value="details" data-testid="tab-details">Details</TabsTrigger>
+          <TabsTrigger value="reviews" data-testid="tab-reviews">
+            <Star className="h-4 w-4 mr-1" />
+            Reviews
+          </TabsTrigger>
           <TabsTrigger value="shipping" data-testid="tab-shipping">Shipping</TabsTrigger>
         </TabsList>
         <TabsContent value="description" className="mt-4">
@@ -310,6 +315,9 @@ export default function SareeDetail() {
             <p><strong>Fabric:</strong> {saree.fabric?.name || "N/A"}</p>
             <p><strong>Color:</strong> {saree.color?.name || "N/A"}</p>
           </div>
+        </TabsContent>
+        <TabsContent value="reviews" className="mt-4">
+          {id && <Reviews sareeId={id} />}
         </TabsContent>
         <TabsContent value="shipping" className="mt-4">
           <div className="prose max-w-none dark:prose-invert text-sm">

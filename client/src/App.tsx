@@ -15,6 +15,8 @@ import Categories from "@/pages/user/Categories";
 import Cart from "@/pages/user/Cart";
 import Wishlist from "@/pages/user/Wishlist";
 import Orders from "@/pages/user/Orders";
+import OrderDetail from "@/pages/user/OrderDetail";
+import Returns from "@/pages/user/Returns";
 import Checkout from "@/pages/user/Checkout";
 import UserLogin from "@/pages/user/Login";
 import UserRegister from "@/pages/user/Register";
@@ -142,6 +144,8 @@ function Router() {
         <Route path="/user/cart" element={<Cart />} />
         <Route path="/user/wishlist" element={<Wishlist />} />
         <Route path="/user/orders" element={<Orders />} />
+        <Route path="/user/orders/:id" element={<OrderDetail />} />
+        <Route path="/user/returns" element={<Returns />} />
         <Route path="/user/checkout" element={<Checkout />} />
         <Route path="/user/addresses" element={<Addresses />} />
         

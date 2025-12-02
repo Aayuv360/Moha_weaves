@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Heart, ShoppingBag, User, Menu, Search, X, LogOut, LayoutDashboard, MapPin, Package } from "lucide-react";
+import { Heart, ShoppingBag, User, Menu, Search, X, LogOut, LayoutDashboard, MapPin, Package, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -122,6 +122,12 @@ export function Header() {
                           My Addresses
                         </Link>
                       </SheetClose>
+                      <SheetClose asChild>
+                        <Link to="/user/returns" className="flex items-center gap-2 text-base hover:text-primary transition-colors">
+                          <RotateCcw className="h-4 w-4" />
+                          Returns
+                        </Link>
+                      </SheetClose>
                     </div>
                   </>
                 )}
@@ -228,6 +234,12 @@ export function Header() {
                         <Link to="/user/addresses" className="cursor-pointer" data-testid="link-addresses">
                           <MapPin className="mr-2 h-4 w-4" />
                           My Addresses
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/user/returns" className="cursor-pointer" data-testid="link-returns">
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Returns
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />

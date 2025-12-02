@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingBag, CreditCard, CheckCircle, MapPin, Plus, Check, AlertCircle } from "lucide-react";
+import { ArrowLeft, ShoppingBag, CreditCard, CheckCircle, MapPin, Plus, Check, AlertCircle, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-import type { CartItemWithSaree, UserAddress } from "@shared/schema";
+import type { CartItemWithSaree, UserAddress, Coupon } from "@shared/schema";
 
 const addressFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -37,6 +37,9 @@ export default function Checkout() {
   const [notes, setNotes] = useState("");
   const [pincodeStatus, setPincodeStatus] = useState<{ available: boolean; message: string; deliveryDays?: number } | null>(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponError, setCouponError] = useState("");
 
   const [newAddress, setNewAddress] = useState({
     name: "",
@@ -109,6 +112,26 @@ export default function Checkout() {
     },
   });
 
+  const applyCouponMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await apiRequest("POST", "/api/user/coupons/validate", { code, orderAmount: subtotal });
+      return response.json();
+    },
+    onSuccess: (data: { valid: boolean; coupon?: any; discountAmount?: string; message?: string }) => {
+      if (data.valid && data.coupon) {
+        setAppliedCoupon(data.coupon);
+        setCouponError("");
+        setCouponCode("");
+        toast({ title: "Coupon applied!", description: `You saved ${formatPrice(parseFloat(data.discountAmount || "0"))}` });
+      } else {
+        setCouponError(data.message || "Invalid coupon");
+      }
+    },
+    onError: (error: any) => {
+      setCouponError(error.message || "Failed to validate coupon");
+    },
+  });
+
   const placeOrderMutation = useMutation({
     mutationFn: async () => {
       const selectedAddress = addresses?.find((a) => a.id === selectedAddressId);
@@ -122,6 +145,7 @@ export default function Checkout() {
         shippingAddress,
         phone: selectedAddress.phone,
         notes,
+        couponId: appliedCoupon?.id,
       });
       return response.json();
     },
@@ -252,8 +276,33 @@ export default function Checkout() {
     return sum + price * item.quantity;
   }, 0);
 
+  const calculateDiscount = () => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.type === "percentage") {
+      const discountVal = (subtotal * parseFloat(appliedCoupon.value)) / 100;
+      const maxDiscount = appliedCoupon.maxDiscount ? parseFloat(appliedCoupon.maxDiscount) : Infinity;
+      return Math.min(discountVal, maxDiscount);
+    }
+    return parseFloat(appliedCoupon.value);
+  };
+
+  const discount = calculateDiscount();
   const shipping = subtotal >= 2999 ? 0 : 199;
-  const total = subtotal + shipping;
+  const total = subtotal - discount + shipping;
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+    applyCouponMutation.mutate(couponCode.trim().toUpperCase());
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError("");
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -510,11 +559,72 @@ export default function Checkout() {
 
               <Separator className="my-4" />
 
+              {/* Coupon Section */}
+              <div className="mb-4">
+                <Label className="text-sm font-medium mb-2 block">Have a coupon?</Label>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-green-600" />
+                      <span className="font-medium text-green-600">{appliedCoupon.code}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {appliedCoupon.type === "percentage" 
+                          ? `${appliedCoupon.value}% off` 
+                          : `₹${appliedCoupon.value} off`}
+                      </Badge>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={handleRemoveCoupon}
+                      className="h-8 w-8"
+                      data-testid="button-remove-coupon"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter coupon code"
+                        value={couponCode}
+                        onChange={(e) => {
+                          setCouponCode(e.target.value.toUpperCase());
+                          setCouponError("");
+                        }}
+                        className={couponError ? "border-destructive" : ""}
+                        data-testid="input-coupon-code"
+                      />
+                      <Button 
+                        variant="outline" 
+                        onClick={handleApplyCoupon}
+                        disabled={applyCouponMutation.isPending}
+                        data-testid="button-apply-coupon"
+                      >
+                        {applyCouponMutation.isPending ? "..." : "Apply"}
+                      </Button>
+                    </div>
+                    {couponError && (
+                      <p className="text-xs text-destructive" data-testid="error-coupon">{couponError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <Separator className="my-4" />
+
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatPrice(subtotal)}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount</span>
+                    <span>-{formatPrice(discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
                   <span>

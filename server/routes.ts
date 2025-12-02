@@ -453,7 +453,7 @@ export async function registerRoutes(
 
   app.post("/api/user/orders", authUser, async (req, res) => {
     try {
-      const { shippingAddress, phone, notes } = req.body;
+      const { shippingAddress, phone, notes, couponId } = req.body;
       const userId = (req as any).user.id;
 
       const cartItems = await storage.getCartItems(userId);
@@ -466,10 +466,33 @@ export async function registerRoutes(
         return sum + price * item.quantity;
       }, 0);
 
+      // Calculate discount if coupon is provided
+      let discountAmount = 0;
+      let validCoupon = null;
+      if (couponId) {
+        const coupon = await storage.getCoupon(couponId);
+        if (coupon && coupon.isActive) {
+          validCoupon = coupon;
+          if (coupon.type === "percentage") {
+            discountAmount = (totalAmount * parseFloat(coupon.value)) / 100;
+            if (coupon.maxDiscount) {
+              discountAmount = Math.min(discountAmount, parseFloat(coupon.maxDiscount));
+            }
+          } else {
+            discountAmount = parseFloat(coupon.value);
+          }
+        }
+      }
+
+      const finalAmount = totalAmount - discountAmount;
+
       const order = await storage.createOrder(
         {
           userId,
           totalAmount: totalAmount.toString(),
+          discountAmount: discountAmount.toString(),
+          finalAmount: finalAmount.toString(),
+          couponId,
           shippingAddress,
           phone,
           notes,
@@ -483,6 +506,11 @@ export async function registerRoutes(
       );
 
       await storage.clearCart(userId);
+
+      // Record coupon usage after order is created
+      if (validCoupon && discountAmount > 0) {
+        await storage.applyCoupon(validCoupon.id, userId, order.id, discountAmount.toString());
+      }
 
       res.json({ orderId: order.id });
     } catch (error) {
@@ -1146,6 +1174,695 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error marking request as received:", error);
       res.status(500).json({ message: "Failed to update request" });
+    }
+  });
+
+  // ==================== RETURN REQUEST ROUTES ====================
+
+  // User: Check return eligibility for an order
+  app.get("/api/user/orders/:id/return-eligibility", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const order = await storage.getOrder(req.params.id);
+      
+      if (!order || order.userId !== user.id) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      const eligibility = await storage.checkOrderReturnEligibility(req.params.id);
+      res.json(eligibility);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to check return eligibility" });
+    }
+  });
+
+  // User: Get user's return requests
+  app.get("/api/user/returns", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const returns = await storage.getUserReturnRequests(user.id);
+      res.json(returns);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch return requests" });
+    }
+  });
+
+  // User: Get single return request
+  app.get("/api/user/returns/:id", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const returnRequest = await storage.getReturnRequest(req.params.id);
+      
+      if (!returnRequest || returnRequest.userId !== user.id) {
+        return res.status(404).json({ message: "Return request not found" });
+      }
+      
+      res.json(returnRequest);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch return request" });
+    }
+  });
+
+  // User: Create return request (supports both refund and exchange)
+  app.post("/api/user/returns", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { orderId, reason, description, resolutionType, items } = req.body;
+      
+      // Validate order and eligibility
+      const order = await storage.getOrder(orderId);
+      if (!order || order.userId !== user.id) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      const eligibility = await storage.checkOrderReturnEligibility(orderId);
+      if (!eligibility.eligible) {
+        return res.status(400).json({ message: eligibility.reason });
+      }
+      
+      // Calculate return amount and validate exchange items
+      let returnAmount = 0;
+      let exchangeAmount = 0;
+      
+      for (const item of items) {
+        const orderItem = order.items.find(oi => oi.id === item.orderItemId);
+        if (orderItem) {
+          returnAmount += parseFloat(orderItem.price) * item.quantity;
+        }
+        
+        // If exchange, validate and calculate exchange product price
+        if (resolutionType === "exchange" && item.exchangeSareeId) {
+          const exchangeSaree = await storage.getSaree(item.exchangeSareeId);
+          if (!exchangeSaree) {
+            return res.status(400).json({ message: "Exchange product not found" });
+          }
+          if (exchangeSaree.onlineStock < item.quantity) {
+            return res.status(400).json({ message: `Insufficient stock for exchange product: ${exchangeSaree.name}` });
+          }
+          exchangeAmount += parseFloat(exchangeSaree.price) * item.quantity;
+        }
+      }
+      
+      // Calculate price difference for exchanges
+      const priceDifference = exchangeAmount - returnAmount;
+      
+      const returnRequest = await storage.createReturnRequest(
+        {
+          orderId,
+          userId: user.id,
+          reason,
+          description,
+          resolutionType: resolutionType || "refund",
+          returnAmount: returnAmount.toString(),
+        },
+        items.map((item: any) => ({
+          orderItemId: item.orderItemId,
+          quantity: item.quantity,
+          reason: item.reason,
+          exchangeSareeId: item.exchangeSareeId || null,
+        }))
+      );
+      
+      // Create notification
+      const notificationMessage = resolutionType === "exchange" 
+        ? `Your exchange request for order #${orderId.slice(-8)} has been submitted. ${priceDifference > 0 ? `You will need to pay ₹${priceDifference.toFixed(2)} for the price difference.` : priceDifference < 0 ? `You will receive ₹${Math.abs(priceDifference).toFixed(2)} as store credit.` : ""}`
+        : `Your return request for order #${orderId.slice(-8)} has been submitted and is pending review.`;
+      
+      await storage.createNotification({
+        userId: user.id,
+        type: "return",
+        title: resolutionType === "exchange" ? "Exchange Request Submitted" : "Return Request Submitted",
+        message: notificationMessage,
+        relatedId: returnRequest.id,
+        relatedType: "return_request",
+      });
+      
+      res.json({
+        ...returnRequest,
+        exchangeAmount: exchangeAmount.toString(),
+        priceDifference: priceDifference.toString(),
+      });
+    } catch (error) {
+      console.error("Error creating return request:", error);
+      res.status(500).json({ message: "Failed to create return request" });
+    }
+  });
+
+  // Admin/Inventory: Get all return requests
+  app.get("/api/inventory/returns", authInventory, async (req, res) => {
+    try {
+      const { status } = req.query;
+      const returns = await storage.getReturnRequests({
+        status: status as string | undefined,
+      });
+      res.json(returns);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch return requests" });
+    }
+  });
+
+  // Admin/Inventory: Update return request status
+  app.patch("/api/inventory/returns/:id/status", authInventory, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { status, adminNotes } = req.body;
+      
+      const returnRequest = await storage.getReturnRequest(req.params.id);
+      if (!returnRequest) {
+        return res.status(404).json({ message: "Return request not found" });
+      }
+      
+      const updated = await storage.updateReturnRequestStatus(
+        req.params.id,
+        status,
+        user.id,
+        adminNotes
+      );
+      
+      // Create notification for user
+      let notificationTitle = "";
+      let notificationMessage = "";
+      
+      const isExchange = returnRequest.resolutionType === "exchange";
+      
+      switch (status) {
+        case "approved":
+          notificationTitle = isExchange ? "Exchange Request Approved" : "Return Request Approved";
+          notificationMessage = isExchange 
+            ? `Your exchange request has been approved. Please ship the items back and we'll send your exchange product.`
+            : `Your return request has been approved. Please ship the items back.`;
+          break;
+        case "rejected":
+          notificationTitle = isExchange ? "Exchange Request Rejected" : "Return Request Rejected";
+          notificationMessage = `Your ${isExchange ? "exchange" : "return"} request has been rejected. ${adminNotes || ""}`;
+          break;
+        case "in_transit":
+          notificationTitle = "Return Items Received";
+          notificationMessage = `We have received your return items and they are being processed.`;
+          break;
+        case "completed":
+          if (isExchange) {
+            notificationTitle = "Exchange Completed";
+            notificationMessage = `Your exchange has been completed. Your new product will be shipped soon!`;
+            // For exchanges, we could create a new order for the exchange product
+            // This would involve processing any price difference
+          } else {
+            notificationTitle = "Return Completed";
+            notificationMessage = `Your return has been completed. Refund will be processed shortly.`;
+            
+            // Create refund record when return is completed
+            await storage.createRefund({
+              returnRequestId: returnRequest.id,
+              orderId: returnRequest.orderId,
+              userId: returnRequest.userId,
+              amount: returnRequest.returnAmount,
+              method: returnRequest.order.paymentMethod || "original_method",
+            });
+          }
+          break;
+      }
+      
+      if (notificationTitle) {
+        await storage.createNotification({
+          userId: returnRequest.userId,
+          type: "return",
+          title: notificationTitle,
+          message: notificationMessage,
+          relatedId: returnRequest.id,
+          relatedType: "return_request",
+        });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating return request:", error);
+      res.status(500).json({ message: "Failed to update return request" });
+    }
+  });
+
+  // ==================== REFUND ROUTES ====================
+
+  // User: Get user's refunds
+  app.get("/api/user/refunds", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const refunds = await storage.getRefunds({ userId: user.id });
+      res.json(refunds);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch refunds" });
+    }
+  });
+
+  // Admin/Inventory: Get all refunds
+  app.get("/api/inventory/refunds", authInventory, async (req, res) => {
+    try {
+      const { status } = req.query;
+      const refunds = await storage.getRefunds({
+        status: status as string | undefined,
+      });
+      res.json(refunds);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch refunds" });
+    }
+  });
+
+  // Admin/Inventory: Process refund
+  app.patch("/api/inventory/refunds/:id/process", authInventory, async (req, res) => {
+    try {
+      const { status, transactionId } = req.body;
+      
+      const refund = await storage.getRefund(req.params.id);
+      if (!refund) {
+        return res.status(404).json({ message: "Refund not found" });
+      }
+      
+      const updated = await storage.updateRefundStatus(
+        req.params.id,
+        status,
+        status === "completed" || status === "failed" ? new Date() : undefined,
+        transactionId
+      );
+      
+      // Create notification
+      if (status === "completed") {
+        await storage.createNotification({
+          userId: refund.userId,
+          type: "refund",
+          title: "Refund Processed",
+          message: `Your refund of ₹${refund.amount} has been processed successfully.`,
+          relatedId: refund.id,
+          relatedType: "refund",
+        });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to process refund" });
+    }
+  });
+
+  // ==================== PRODUCT REVIEW ROUTES ====================
+
+  // Public: Get reviews for a saree
+  app.get("/api/sarees/:id/reviews", async (req, res) => {
+    try {
+      const reviews = await storage.getProductReviews(req.params.id, { status: "approved" });
+      res.json(reviews);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Public: Get review stats for a saree
+  app.get("/api/sarees/:id/reviews/stats", async (req, res) => {
+    try {
+      const reviews = await storage.getProductReviews(req.params.id, { status: "approved" });
+      
+      const totalReviews = reviews.length;
+      const averageRating = totalReviews > 0 
+        ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews 
+        : 0;
+      
+      const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      reviews.forEach((r) => {
+        if (ratingDistribution[r.rating] !== undefined) {
+          ratingDistribution[r.rating]++;
+        }
+      });
+      
+      res.json({
+        averageRating,
+        totalReviews,
+        ratingDistribution,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch review stats" });
+    }
+  });
+
+  // User: Create a review for a specific saree
+  app.post("/api/sarees/:id/reviews", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const sareeId = req.params.id;
+      const { rating, comment, title, images } = req.body;
+      
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+      
+      const review = await storage.createReview({
+        sareeId,
+        userId: user.id,
+        rating,
+        title,
+        comment,
+        images: images || [],
+      });
+      
+      res.json(review);
+    } catch (error) {
+      console.error("Error creating review:", error);
+      res.status(500).json({ message: "Failed to create review" });
+    }
+  });
+
+  // Public: Get saree with reviews and ratings
+  app.get("/api/sarees/:id/with-reviews", async (req, res) => {
+    try {
+      const saree = await storage.getSareeWithReviews(req.params.id);
+      if (!saree) {
+        return res.status(404).json({ message: "Saree not found" });
+      }
+      res.json(saree);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch saree with reviews" });
+    }
+  });
+
+  // User: Check if user can review a product
+  app.get("/api/user/can-review/:sareeId", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const canReview = await storage.canUserReviewProduct(user.id, req.params.sareeId);
+      res.json({ canReview });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to check review eligibility" });
+    }
+  });
+
+  // User: Create a review
+  app.post("/api/user/reviews", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { sareeId, orderId, rating, title, comment, images } = req.body;
+      
+      // Validate rating
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+      
+      // Check if user can review
+      const canReview = await storage.canUserReviewProduct(user.id, sareeId);
+      if (!canReview) {
+        return res.status(400).json({ message: "You cannot review this product. Either you haven't purchased it or already reviewed it." });
+      }
+      
+      const review = await storage.createReview({
+        sareeId,
+        userId: user.id,
+        orderId,
+        rating,
+        title,
+        comment,
+        images: images || [],
+      });
+      
+      res.json(review);
+    } catch (error) {
+      console.error("Error creating review:", error);
+      res.status(500).json({ message: "Failed to create review" });
+    }
+  });
+
+  // User: Get user's reviews
+  app.get("/api/user/reviews", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const reviews = await storage.getUserReviews(user.id);
+      res.json(reviews);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Admin: Get all reviews (for moderation)
+  app.get("/api/admin/reviews", authAdmin, async (req, res) => {
+    try {
+      const { status } = req.query;
+      const reviews = await storage.getAllReviews({
+        status: status as string | undefined,
+      });
+      res.json(reviews);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Admin: Update review status (approve/reject)
+  app.patch("/api/admin/reviews/:id/status", authAdmin, async (req, res) => {
+    try {
+      const { status } = req.body;
+      
+      if (!["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const review = await storage.updateReviewStatus(req.params.id, status);
+      if (!review) {
+        return res.status(404).json({ message: "Review not found" });
+      }
+      
+      res.json(review);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update review status" });
+    }
+  });
+
+  // ==================== COUPON ROUTES ====================
+
+  // Admin: Get all coupons
+  app.get("/api/admin/coupons", authAdmin, async (req, res) => {
+    try {
+      const { active } = req.query;
+      const coupons = await storage.getCoupons({
+        isActive: active === "true" ? true : active === "false" ? false : undefined,
+      });
+      res.json(coupons);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch coupons" });
+    }
+  });
+
+  // Admin: Create coupon
+  app.post("/api/admin/coupons", authAdmin, async (req, res) => {
+    try {
+      const { code, type, value, minOrderAmount, maxDiscount, validFrom, validUntil, maxUsage, maxUsagePerUser, description } = req.body;
+      
+      // Check if code already exists
+      const existing = await storage.getCouponByCode(code);
+      if (existing) {
+        return res.status(400).json({ message: "Coupon code already exists" });
+      }
+      
+      const coupon = await storage.createCoupon({
+        code,
+        type,
+        value,
+        minOrderAmount,
+        maxDiscount,
+        validFrom: validFrom ? new Date(validFrom) : undefined,
+        validUntil: validUntil ? new Date(validUntil) : undefined,
+        maxUsage,
+        maxUsagePerUser,
+        description,
+      });
+      
+      res.json(coupon);
+    } catch (error) {
+      console.error("Error creating coupon:", error);
+      res.status(500).json({ message: "Failed to create coupon" });
+    }
+  });
+
+  // Admin: Update coupon
+  app.patch("/api/admin/coupons/:id", authAdmin, async (req, res) => {
+    try {
+      const coupon = await storage.updateCoupon(req.params.id, req.body);
+      if (!coupon) {
+        return res.status(404).json({ message: "Coupon not found" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update coupon" });
+    }
+  });
+
+  // Admin: Delete (deactivate) coupon
+  app.delete("/api/admin/coupons/:id", authAdmin, async (req, res) => {
+    try {
+      await storage.deleteCoupon(req.params.id);
+      res.json({ message: "Coupon deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete coupon" });
+    }
+  });
+
+  // User: Validate coupon
+  app.post("/api/user/coupons/validate", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { code, orderAmount } = req.body;
+      
+      const result = await storage.validateCoupon(code, user.id, orderAmount);
+      
+      if (!result.valid) {
+        return res.status(400).json({ message: result.error });
+      }
+      
+      // Calculate discount
+      let discountAmount = 0;
+      const coupon = result.coupon!;
+      
+      if (coupon.type === "percentage") {
+        discountAmount = (orderAmount * parseFloat(coupon.value)) / 100;
+        if (coupon.maxDiscount) {
+          discountAmount = Math.min(discountAmount, parseFloat(coupon.maxDiscount));
+        }
+      } else {
+        discountAmount = parseFloat(coupon.value);
+      }
+      
+      res.json({
+        valid: true,
+        coupon,
+        discountAmount: discountAmount.toFixed(2),
+        finalAmount: (orderAmount - discountAmount).toFixed(2),
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to validate coupon" });
+    }
+  });
+
+  // ==================== NOTIFICATION ROUTES ====================
+
+  // User: Get notifications
+  app.get("/api/user/notifications", authAny, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { unreadOnly } = req.query;
+      const notifications = await storage.getNotifications(user.id, unreadOnly === "true");
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  // User: Get unread notification count
+  app.get("/api/user/notifications/unread-count", authAny, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const count = await storage.getUnreadNotificationCount(user.id);
+      res.json({ count });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch notification count" });
+    }
+  });
+
+  // User: Mark notification as read
+  app.patch("/api/user/notifications/:id/read", authAny, async (req, res) => {
+    try {
+      const notification = await storage.markNotificationAsRead(req.params.id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      res.json(notification);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  // User: Mark all notifications as read
+  app.post("/api/user/notifications/mark-all-read", authAny, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      await storage.markAllNotificationsAsRead(user.id);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark notifications as read" });
+    }
+  });
+
+  // ==================== ORDER STATUS HISTORY ROUTES ====================
+
+  // User: Get order status history
+  app.get("/api/user/orders/:id/history", authUser, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const order = await storage.getOrder(req.params.id);
+      
+      if (!order || order.userId !== user.id) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      const history = await storage.getOrderStatusHistory(req.params.id);
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch order history" });
+    }
+  });
+
+  // Inventory: Update order status with history
+  app.patch("/api/inventory/orders/:id/status", authInventory, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { status, notes } = req.body;
+      
+      const order = await storage.getOrder(req.params.id);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      const updated = await storage.updateOrderWithStatusHistory(
+        req.params.id,
+        status,
+        user.id,
+        notes
+      );
+      
+      if (!updated) {
+        return res.status(500).json({ message: "Failed to update order" });
+      }
+      
+      // Create notification for user
+      let notificationMessage = "";
+      switch (status) {
+        case "confirmed":
+          notificationMessage = "Your order has been confirmed and is being processed.";
+          break;
+        case "processing":
+          notificationMessage = "Your order is being prepared for shipment.";
+          break;
+        case "shipped":
+          notificationMessage = "Your order has been shipped! Track it for delivery updates.";
+          break;
+        case "delivered":
+          notificationMessage = "Your order has been delivered. Enjoy your purchase!";
+          // Set return eligibility window (7 days from delivery)
+          const eligibleUntil = new Date();
+          eligibleUntil.setDate(eligibleUntil.getDate() + 7);
+          await storage.updateOrderStatus(req.params.id, status);
+          break;
+        case "cancelled":
+          notificationMessage = "Your order has been cancelled.";
+          break;
+      }
+      
+      if (notificationMessage) {
+        await storage.createNotification({
+          userId: order.userId,
+          type: "order",
+          title: `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+          message: notificationMessage,
+          relatedId: order.id,
+          relatedType: "order",
+        });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      res.status(500).json({ message: "Failed to update order status" });
     }
   });
 
