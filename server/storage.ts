@@ -91,7 +91,7 @@ export interface IStorage {
   // Orders
   getOrders(userId: string): Promise<OrderWithItems[]>;
   getOrder(id: string): Promise<OrderWithItems | undefined>;
-  getAllOrders(filters?: { status?: string; limit?: number }): Promise<Order[]>;
+  getAllOrders(filters?: { status?: string; limit?: number }): Promise<OrderWithItems[]>;
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
 
@@ -666,7 +666,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllOrders(filters?: { status?: string; limit?: number }): Promise<Order[]> {
+  async getAllOrders(filters?: { status?: string; limit?: number }): Promise<OrderWithItems[]> {
     let query = db.select().from(orders).orderBy(desc(orders.createdAt));
 
     if (filters?.status) {
@@ -677,7 +677,34 @@ export class DatabaseStorage implements IStorage {
       query = query.limit(filters.limit) as any;
     }
 
-    return query;
+    const orderList = await query;
+    const result: OrderWithItems[] = [];
+
+    for (const order of orderList) {
+      const items = await db
+        .select()
+        .from(orderItems)
+        .innerJoin(sarees, eq(orderItems.sareeId, sarees.id))
+        .leftJoin(categories, eq(sarees.categoryId, categories.id))
+        .leftJoin(colors, eq(sarees.colorId, colors.id))
+        .leftJoin(fabrics, eq(sarees.fabricId, fabrics.id))
+        .where(eq(orderItems.orderId, order.id));
+
+      result.push({
+        ...order,
+        items: items.map((row) => ({
+          ...row.order_items,
+          saree: {
+            ...row.sarees,
+            category: row.categories,
+            color: row.colors,
+            fabric: row.fabrics,
+          },
+        })),
+      });
+    }
+
+    return result;
   }
 
   async createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
