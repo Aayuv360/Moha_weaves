@@ -1299,8 +1299,28 @@ export class DatabaseStorage implements IStorage {
     const order = await this.getOrder(orderId);
     if (!order) return { eligible: false, reason: "Order not found" };
     if (order.status !== "delivered") return { eligible: false, reason: "Order must be delivered to initiate return" };
-    if (!order.isReturnEligibleUntil) return { eligible: false, reason: "Return window not set" };
-    if (new Date() > new Date(order.isReturnEligibleUntil)) {
+    
+    // Handle missing return window - calculate from deliveredAt if available
+    if (!order.returnEligibleUntil) {
+      if (order.deliveredAt) {
+        // Get return window setting, default to 7 days
+        const windowDays = await this.getSetting("return_window_days");
+        const days = windowDays ? parseInt(windowDays) : 7;
+        const eligibleUntil = new Date(order.deliveredAt);
+        eligibleUntil.setDate(eligibleUntil.getDate() + days);
+        
+        // Update the order with the calculated return window
+        await db.update(orders).set({ returnEligibleUntil: eligibleUntil }).where(eq(orders.id, orderId));
+        
+        if (new Date() > eligibleUntil) {
+          return { eligible: false, reason: "Return window has expired" };
+        }
+        return { eligible: true };
+      }
+      return { eligible: false, reason: "Return window not set - order delivery date missing" };
+    }
+    
+    if (new Date() > new Date(order.returnEligibleUntil)) {
       return { eligible: false, reason: "Return window has expired" };
     }
     

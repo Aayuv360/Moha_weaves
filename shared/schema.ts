@@ -324,6 +324,15 @@ export const orderStatusHistory = pgTable("order_status_history", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Application settings for configurable values
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: varchar("updated_by"),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   store: one(stores, { fields: [users.storeId], references: [stores.id] }),
@@ -490,6 +499,7 @@ export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, c
 export const insertCouponUsageSchema = createInsertSchema(couponUsage).omit({ id: true, usedAt: true });
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export const insertOrderStatusHistorySchema = createInsertSchema(orderStatusHistory).omit({ id: true, createdAt: true });
+export const insertAppSettingSchema = createInsertSchema(appSettings).omit({ updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -540,6 +550,8 @@ export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type OrderStatusHistory = typeof orderStatusHistory.$inferSelect;
 export type InsertOrderStatusHistory = z.infer<typeof insertOrderStatusHistorySchema>;
+export type AppSetting = typeof appSettings.$inferSelect;
+export type InsertAppSetting = z.infer<typeof insertAppSettingSchema>;
 
 // Extended types for frontend use
 export type SareeWithDetails = Saree & {
