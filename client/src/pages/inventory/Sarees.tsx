@@ -52,7 +52,13 @@ import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { SareeWithDetails, Category, Color, Fabric } from "@shared/schema";
+import type { SareeWithDetails, Category, Color, Fabric, Store } from "@shared/schema";
+
+interface StoreAllocation {
+  storeId: string;
+  storeName: string;
+  quantity: number;
+}
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/inventory/dashboard" },
@@ -90,6 +96,7 @@ export default function InventorySarees() {
   const [editingSaree, setEditingSaree] = useState<SareeWithDetails | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingSareeId, setDeletingSareeId] = useState<string | null>(null);
+  const [storeAllocations, setStoreAllocations] = useState<StoreAllocation[]>([]);
   
   const [formData, setFormData] = useState<SareeFormData>({
     name: "",
@@ -123,11 +130,19 @@ export default function InventorySarees() {
     queryKey: ["/api/fabrics"],
   });
 
+  const { data: stores } = useQuery<Store[]>({
+    queryKey: ["/api/inventory/stores"],
+  });
+
   const createMutation = useMutation({
-    mutationFn: async (data: SareeFormData) => {
+    mutationFn: async (data: { formData: SareeFormData; allocations: StoreAllocation[] }) => {
       const response = await apiRequest("POST", "/api/inventory/sarees", {
-        ...data,
-        price: data.price,
+        ...data.formData,
+        price: data.formData.price,
+        storeAllocations: data.allocations.filter(a => a.quantity > 0).map(a => ({
+          storeId: a.storeId,
+          quantity: a.quantity,
+        })),
       });
       return response.json();
     },
@@ -136,16 +151,20 @@ export default function InventorySarees() {
       toast({ title: "Success", description: "Saree created successfully" });
       handleCloseDialog();
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create saree", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to create saree", variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: SareeFormData }) => {
+    mutationFn: async ({ id, data, allocations }: { id: string; data: SareeFormData; allocations: StoreAllocation[] }) => {
       const response = await apiRequest("PATCH", `/api/inventory/sarees/${id}`, {
         ...data,
         price: data.price,
+        storeAllocations: allocations.filter(a => a.quantity > 0).map(a => ({
+          storeId: a.storeId,
+          quantity: a.quantity,
+        })),
       });
       return response.json();
     },
@@ -154,8 +173,8 @@ export default function InventorySarees() {
       toast({ title: "Success", description: "Saree updated successfully" });
       handleCloseDialog();
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update saree", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to update saree", variant: "destructive" });
     },
   });
 
@@ -196,10 +215,11 @@ export default function InventorySarees() {
       isFeatured: false,
       isActive: true,
     });
+    setStoreAllocations(stores?.map(s => ({ storeId: s.id, storeName: s.name, quantity: 0 })) || []);
     setDialogOpen(true);
   };
 
-  const handleOpenEdit = (saree: SareeWithDetails) => {
+  const handleOpenEdit = async (saree: SareeWithDetails) => {
     setEditingSaree(saree);
     setFormData({
       name: saree.name,
@@ -216,22 +236,71 @@ export default function InventorySarees() {
       isFeatured: saree.isFeatured,
       isActive: saree.isActive,
     });
+    
+    try {
+      const response = await fetch(`/api/inventory/sarees/${saree.id}/allocations`, { credentials: "include" });
+      const existingAllocations = await response.json();
+      
+      const allocs = stores?.map(s => {
+        const existing = existingAllocations.find((a: StoreAllocation) => a.storeId === s.id);
+        return { storeId: s.id, storeName: s.name, quantity: existing?.quantity || 0 };
+      }) || [];
+      setStoreAllocations(allocs);
+    } catch {
+      setStoreAllocations(stores?.map(s => ({ storeId: s.id, storeName: s.name, quantity: 0 })) || []);
+    }
+    
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingSaree(null);
+    setStoreAllocations([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const totalAllocated = storeAllocations.reduce((sum, a) => sum + a.quantity, 0);
+    
+    if (formData.distributionChannel === "shop") {
+      if (totalAllocated !== formData.totalStock) {
+        toast({ 
+          title: "Allocation Error", 
+          description: `Store allocations (${totalAllocated}) must equal total stock (${formData.totalStock})`,
+          variant: "destructive"
+        });
+        return;
+      }
+    } else if (formData.distributionChannel === "both") {
+      if (totalAllocated + formData.onlineStock !== formData.totalStock) {
+        toast({ 
+          title: "Allocation Error", 
+          description: `Online (${formData.onlineStock}) + Store allocations (${totalAllocated}) must equal total stock (${formData.totalStock})`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    
     if (editingSaree) {
-      updateMutation.mutate({ id: editingSaree.id, data: formData });
+      updateMutation.mutate({ id: editingSaree.id, data: formData, allocations: storeAllocations });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate({ formData, allocations: storeAllocations });
     }
   };
+  
+  const updateStoreAllocation = (storeId: string, quantity: number) => {
+    setStoreAllocations(prev => 
+      prev.map(a => a.storeId === storeId ? { ...a, quantity: Math.max(0, quantity) } : a)
+    );
+  };
+  
+  const totalStoreAllocated = storeAllocations.reduce((sum, a) => sum + a.quantity, 0);
+  const remainingToAllocate = formData.distributionChannel === "shop" 
+    ? formData.totalStock - totalStoreAllocated
+    : formData.totalStock - formData.onlineStock - totalStoreAllocated;
 
   const formatPrice = (price: string | number) => {
     const numPrice = typeof price === "string" ? parseFloat(price) : price;
@@ -576,7 +645,7 @@ export default function InventorySarees() {
                 </Select>
               </div>
 
-              <div>
+              <div className="col-span-2">
                 <Label htmlFor="totalStock">Total Stock</Label>
                 <Input
                   id="totalStock"
@@ -587,16 +656,86 @@ export default function InventorySarees() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="onlineStock">Online Stock</Label>
-                <Input
-                  id="onlineStock"
-                  type="number"
-                  value={formData.onlineStock}
-                  onChange={(e) => setFormData({ ...formData, onlineStock: parseInt(e.target.value) || 0 })}
-                  data-testid="input-online-stock"
-                />
-              </div>
+              {formData.distributionChannel === "online" && (
+                <div className="col-span-2 p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">
+                    All {formData.totalStock} units will be allocated to online sales.
+                  </p>
+                </div>
+              )}
+
+              {formData.distributionChannel === "both" && (
+                <div className="col-span-2 space-y-3">
+                  <div>
+                    <Label htmlFor="onlineStock">Online Stock</Label>
+                    <Input
+                      id="onlineStock"
+                      type="number"
+                      value={formData.onlineStock}
+                      onChange={(e) => setFormData({ ...formData, onlineStock: parseInt(e.target.value) || 0 })}
+                      data-testid="input-online-stock"
+                    />
+                  </div>
+                  
+                  <div className="border rounded-md p-3">
+                    <Label className="mb-2 block">Store Allocations</Label>
+                    {storeAllocations.length > 0 ? (
+                      <div className="space-y-2">
+                        {storeAllocations.map((alloc) => (
+                          <div key={alloc.storeId} className="flex items-center gap-3">
+                            <span className="flex-1 text-sm">{alloc.storeName}</span>
+                            <Input
+                              type="number"
+                              className="w-24"
+                              value={alloc.quantity}
+                              onChange={(e) => updateStoreAllocation(alloc.storeId, parseInt(e.target.value) || 0)}
+                              data-testid={`input-store-${alloc.storeId}`}
+                            />
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t flex justify-between text-sm">
+                          <span>Remaining to allocate:</span>
+                          <span className={remainingToAllocate !== 0 ? "text-destructive font-medium" : "text-green-600 font-medium"}>
+                            {remainingToAllocate}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No stores available</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {formData.distributionChannel === "shop" && (
+                <div className="col-span-2 border rounded-md p-3">
+                  <Label className="mb-2 block">Distribute to Stores</Label>
+                  {storeAllocations.length > 0 ? (
+                    <div className="space-y-2">
+                      {storeAllocations.map((alloc) => (
+                        <div key={alloc.storeId} className="flex items-center gap-3">
+                          <span className="flex-1 text-sm">{alloc.storeName}</span>
+                          <Input
+                            type="number"
+                            className="w-24"
+                            value={alloc.quantity}
+                            onChange={(e) => updateStoreAllocation(alloc.storeId, parseInt(e.target.value) || 0)}
+                            data-testid={`input-store-${alloc.storeId}`}
+                          />
+                        </div>
+                      ))}
+                      <div className="pt-2 border-t flex justify-between text-sm">
+                        <span>Remaining to allocate:</span>
+                        <span className={remainingToAllocate !== 0 ? "text-destructive font-medium" : "text-green-600 font-medium"}>
+                          {remainingToAllocate}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No stores available</p>
+                  )}
+                </div>
+              )}
 
               <div className="col-span-2">
                 <Label htmlFor="imageUrl">Image URL</Label>

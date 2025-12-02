@@ -100,6 +100,18 @@ export interface IStorage {
   getShopAvailableProducts(storeId: string): Promise<{ saree: SareeWithDetails; storeStock: number }[]>;
   updateStoreInventory(storeId: string, sareeId: string, quantity: number): Promise<StoreInventory>;
   
+  // Saree with Store Allocations
+  createSareeWithAllocations(
+    saree: InsertSaree,
+    storeAllocations: { storeId: string; quantity: number }[]
+  ): Promise<Saree>;
+  updateSareeWithAllocations(
+    id: string,
+    data: Partial<InsertSaree>,
+    storeAllocations: { storeId: string; quantity: number }[]
+  ): Promise<Saree | undefined>;
+  getSareeAllocations(sareeId: string): Promise<{ storeId: string; storeName: string; quantity: number }[]>;
+  
   // Stock Distribution (centralized view)
   getStockDistribution(): Promise<{
     saree: SareeWithDetails;
@@ -388,6 +400,66 @@ export class DatabaseStorage implements IStorage {
   async deleteSaree(id: string): Promise<boolean> {
     const [result] = await db.update(sarees).set({ isActive: false }).where(eq(sarees.id, id)).returning();
     return !!result;
+  }
+
+  async createSareeWithAllocations(
+    saree: InsertSaree,
+    allocations: { storeId: string; quantity: number }[]
+  ): Promise<Saree> {
+    return await db.transaction(async (tx) => {
+      const [createdSaree] = await tx.insert(sarees).values(saree).returning();
+      
+      const nonZeroAllocations = allocations.filter(a => a.quantity > 0);
+      if (nonZeroAllocations.length > 0) {
+        const inventoryRecords = nonZeroAllocations.map((alloc) => ({
+          storeId: alloc.storeId,
+          sareeId: createdSaree.id,
+          quantity: alloc.quantity,
+        }));
+        await tx.insert(storeInventory).values(inventoryRecords);
+      }
+      
+      return createdSaree;
+    });
+  }
+
+  async updateSareeWithAllocations(
+    id: string,
+    data: Partial<InsertSaree>,
+    allocations: { storeId: string; quantity: number }[]
+  ): Promise<Saree | undefined> {
+    return await db.transaction(async (tx) => {
+      const [updatedSaree] = await tx.update(sarees).set(data).where(eq(sarees.id, id)).returning();
+      if (!updatedSaree) return undefined;
+      
+      await tx.delete(storeInventory).where(eq(storeInventory.sareeId, id));
+      
+      const nonZeroAllocations = allocations.filter(a => a.quantity > 0);
+      if (nonZeroAllocations.length > 0) {
+        const inventoryRecords = nonZeroAllocations.map((alloc) => ({
+          storeId: alloc.storeId,
+          sareeId: id,
+          quantity: alloc.quantity,
+        }));
+        await tx.insert(storeInventory).values(inventoryRecords);
+      }
+      
+      return updatedSaree;
+    });
+  }
+
+  async getSareeAllocations(sareeId: string): Promise<{ storeId: string; storeName: string; quantity: number }[]> {
+    const result = await db
+      .select({
+        storeId: storeInventory.storeId,
+        storeName: stores.name,
+        quantity: storeInventory.quantity,
+      })
+      .from(storeInventory)
+      .innerJoin(stores, eq(storeInventory.storeId, stores.id))
+      .where(eq(storeInventory.sareeId, sareeId));
+    
+    return result;
   }
 
   async getLowStockSarees(threshold = 10): Promise<SareeWithDetails[]> {

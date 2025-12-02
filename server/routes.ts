@@ -16,6 +16,35 @@ const addressSchema = z.object({
   isDefault: z.boolean().optional().default(false),
 });
 
+const storeAllocationSchema = z.object({
+  storeId: z.string().min(1, "Store ID is required"),
+  quantity: z.number().int().min(0, "Quantity must be a non-negative integer"),
+});
+
+const sareeBaseSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  price: z.string().or(z.number()).transform(val => String(val)),
+  categoryId: z.string().optional(),
+  colorId: z.string().optional(),
+  fabricId: z.string().optional(),
+  imageUrl: z.string().optional(),
+  sku: z.string().optional(),
+  totalStock: z.number().int().min(0, "Total stock must be non-negative"),
+  onlineStock: z.number().int().min(0, "Online stock must be non-negative"),
+  distributionChannel: z.enum(["shop", "online", "both"]),
+  isFeatured: z.boolean().optional().default(false),
+  isActive: z.boolean().optional().default(true),
+  storeAllocations: z.array(storeAllocationSchema).optional().default([]),
+});
+
+const sareeWithAllocationsSchema = sareeBaseSchema.refine(data => {
+  const storeIds = data.storeAllocations?.map(a => a.storeId) || [];
+  return new Set(storeIds).size === storeIds.length;
+}, { message: "Duplicate store IDs are not allowed" });
+
+const sareeUpdateSchema = sareeBaseSchema.partial();
+
 // Auth middleware
 function createAuthMiddleware(allowedRoles: string[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -713,20 +742,102 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/inventory/stores", authInventory, async (req, res) => {
+    try {
+      const stores = await storage.getStores();
+      res.json(stores);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch stores" });
+    }
+  });
+
+  app.get("/api/inventory/sarees/:id/allocations", authInventory, async (req, res) => {
+    try {
+      const allocations = await storage.getSareeAllocations(req.params.id);
+      res.json(allocations);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch allocations" });
+    }
+  });
+
   app.post("/api/inventory/sarees", authInventory, async (req, res) => {
     try {
-      const saree = await storage.createSaree(req.body);
-      res.json(saree);
+      const validation = sareeWithAllocationsSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error.errors[0]?.message || "Invalid input" });
+      }
+      
+      const { storeAllocations, ...sareeData } = validation.data;
+      
+      if (sareeData.distributionChannel === "online") {
+        sareeData.onlineStock = sareeData.totalStock;
+        const saree = await storage.createSareeWithAllocations(sareeData, []);
+        res.json(saree);
+      } else if (sareeData.distributionChannel === "shop") {
+        sareeData.onlineStock = 0;
+        const allocations = storeAllocations || [];
+        const totalAllocated = allocations.reduce((sum, a) => sum + a.quantity, 0);
+        if (totalAllocated !== sareeData.totalStock) {
+          return res.status(400).json({ message: `Store allocations (${totalAllocated}) must equal total stock (${sareeData.totalStock})` });
+        }
+        const saree = await storage.createSareeWithAllocations(sareeData, allocations);
+        res.json(saree);
+      } else {
+        const allocations = storeAllocations || [];
+        const storeTotal = allocations.reduce((sum, a) => sum + a.quantity, 0);
+        const onlineStock = sareeData.onlineStock || 0;
+        if (storeTotal + onlineStock !== sareeData.totalStock) {
+          return res.status(400).json({ 
+            message: `Online (${onlineStock}) + Store allocations (${storeTotal}) must equal total stock (${sareeData.totalStock})` 
+          });
+        }
+        const saree = await storage.createSareeWithAllocations(sareeData, allocations);
+        res.json(saree);
+      }
     } catch (error) {
+      console.error("Error creating saree:", error);
       res.status(500).json({ message: "Failed to create saree" });
     }
   });
 
   app.patch("/api/inventory/sarees/:id", authInventory, async (req, res) => {
     try {
-      const saree = await storage.updateSaree(req.params.id, req.body);
-      res.json(saree);
+      const validation = sareeUpdateSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error.errors[0]?.message || "Invalid input" });
+      }
+      
+      const { storeAllocations, ...sareeData } = validation.data;
+      const allocations = storeAllocations || [];
+      
+      if (sareeData.distributionChannel === "online") {
+        sareeData.onlineStock = sareeData.totalStock;
+        const saree = await storage.updateSareeWithAllocations(req.params.id, sareeData, []);
+        res.json(saree);
+      } else if (sareeData.distributionChannel === "shop") {
+        sareeData.onlineStock = 0;
+        const totalAllocated = allocations.reduce((sum: number, a: { quantity: number }) => sum + a.quantity, 0);
+        if (sareeData.totalStock !== undefined && totalAllocated !== sareeData.totalStock) {
+          return res.status(400).json({ message: `Store allocations (${totalAllocated}) must equal total stock (${sareeData.totalStock})` });
+        }
+        const saree = await storage.updateSareeWithAllocations(req.params.id, sareeData, allocations);
+        res.json(saree);
+      } else if (sareeData.distributionChannel === "both") {
+        const storeTotal = allocations.reduce((sum: number, a: { quantity: number }) => sum + a.quantity, 0);
+        const onlineStock = sareeData.onlineStock || 0;
+        if (sareeData.totalStock !== undefined && storeTotal + onlineStock !== sareeData.totalStock) {
+          return res.status(400).json({ 
+            message: `Online (${onlineStock}) + Store allocations (${storeTotal}) must equal total stock (${sareeData.totalStock})` 
+          });
+        }
+        const saree = await storage.updateSareeWithAllocations(req.params.id, sareeData, allocations);
+        res.json(saree);
+      } else {
+        const saree = await storage.updateSareeWithAllocations(req.params.id, sareeData, allocations);
+        res.json(saree);
+      }
     } catch (error) {
+      console.error("Error updating saree:", error);
       res.status(500).json({ message: "Failed to update saree" });
     }
   });
