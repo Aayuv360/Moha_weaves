@@ -71,6 +71,7 @@ export const sarees = pgTable("sarees", {
   fabricId: varchar("fabric_id").references(() => fabrics.id),
   imageUrl: text("image_url"),
   images: text("images").array(),
+  videoUrl: text("video_url"),
   sku: text("sku").unique(),
   totalStock: integer("total_stock").notNull().default(0),
   onlineStock: integer("online_stock").notNull().default(0),

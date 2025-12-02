@@ -15,6 +15,10 @@ import {
   BarChart3,
   Warehouse,
   Shirt,
+  Upload,
+  X,
+  Video,
+  Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +57,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { SareeWithDetails, Category, Color, Fabric, Store } from "@shared/schema";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 interface StoreAllocation {
   storeId: string;
@@ -77,6 +82,8 @@ interface SareeFormData {
   colorId: string;
   fabricId: string;
   imageUrl: string;
+  images: string[];
+  videoUrl: string;
   sku: string;
   totalStock: number;
   onlineStock: number;
@@ -106,6 +113,8 @@ export default function InventorySarees() {
     colorId: "",
     fabricId: "",
     imageUrl: "",
+    images: [],
+    videoUrl: "",
     sku: "",
     totalStock: 0,
     onlineStock: 0,
@@ -208,6 +217,8 @@ export default function InventorySarees() {
       colorId: "",
       fabricId: "",
       imageUrl: "",
+      images: [],
+      videoUrl: "",
       sku: "",
       totalStock: 0,
       onlineStock: 0,
@@ -229,6 +240,8 @@ export default function InventorySarees() {
       colorId: saree.colorId || "",
       fabricId: saree.fabricId || "",
       imageUrl: saree.imageUrl || "",
+      images: (saree as any).images || [],
+      videoUrl: (saree as any).videoUrl || "",
       sku: saree.sku || "",
       totalStock: saree.totalStock,
       onlineStock: saree.onlineStock,
@@ -737,15 +750,109 @@ export default function InventorySarees() {
                 </div>
               )}
 
-              <div className="col-span-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input
-                  id="imageUrl"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  placeholder="https://..."
-                  data-testid="input-image-url"
-                />
+              <div className="col-span-2 space-y-4">
+                <div>
+                  <Label htmlFor="imageUrl">Main Image URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="imageUrl"
+                      value={formData.imageUrl}
+                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                      placeholder="https://... or upload below"
+                      data-testid="input-image-url"
+                    />
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={10485760}
+                      fileType="image"
+                      onComplete={(urls) => {
+                        if (urls.length > 0) {
+                          setFormData({ ...formData, imageUrl: urls[0] });
+                        }
+                      }}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload
+                    </ObjectUploader>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Additional Images</Label>
+                  <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                    {formData.images.map((img, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={img.startsWith("/objects/") ? img : img}
+                          alt={`Image ${index + 1}`}
+                          className="w-16 h-20 object-cover rounded border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData({
+                            ...formData,
+                            images: formData.images.filter((_, i) => i !== index)
+                          })}
+                          className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <ObjectUploader
+                    maxNumberOfFiles={5}
+                    maxFileSize={10485760}
+                    fileType="image"
+                    onComplete={(urls) => {
+                      setFormData({ ...formData, images: [...formData.images, ...urls] });
+                    }}
+                  >
+                    <Image className="h-4 w-4 mr-2" />
+                    Upload Images (Max 5)
+                  </ObjectUploader>
+                </div>
+
+                <div>
+                  <Label htmlFor="videoUrl">Video URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="videoUrl"
+                      value={formData.videoUrl}
+                      onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                      placeholder="https://... or upload below"
+                      data-testid="input-video-url"
+                    />
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={104857600}
+                      fileType="video"
+                      onComplete={(urls) => {
+                        if (urls.length > 0) {
+                          setFormData({ ...formData, videoUrl: urls[0] });
+                        }
+                      }}
+                    >
+                      <Video className="h-4 w-4 mr-2" />
+                      Upload Video
+                    </ObjectUploader>
+                  </div>
+                  {formData.videoUrl && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Video className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                        {formData.videoUrl}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, videoUrl: "" })}
+                        className="text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-2">

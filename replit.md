@@ -177,7 +177,27 @@ All user addresses are validated with:
 - **City**: 2-100 characters
 - **Pincode**: Exactly 6 digits
 
+## File Upload System
+- **ObjectUploader Component**: Custom file uploader component for images and videos
+- **Security**: Token-based upload verification with presigned URLs
+- **Supported Types**: Images (max 10MB) and videos (max 100MB)
+- **Multiple Images**: Sarees support multiple additional images (up to 5)
+- **Upload Flow**:
+  1. Client requests presigned URL with uploadToken
+  2. Client uploads file directly to object storage
+  3. Client confirms upload with objectPath and uploadToken
+  4. Server verifies token and sets ACL
+
+### File Upload API
+- `POST /api/uploads/presigned-url` - Get presigned upload URL
+- `POST /api/uploads/confirm` - Confirm upload and set public ACL
+- `GET /objects/:objectPath` - Serve uploaded files
+
 ## Recent Changes (December 2024)
+- **Added multiple image and video upload for sarees** - Inventory staff can upload main image, additional images (up to 5), and video
+- **Implemented secure file upload** - Token-based presigned URL verification prevents unauthorized uploads
+- **Added URL validation** - Media URLs are validated to ensure only HTTPS or object storage paths are accepted
+- **Fixed empty string handling** - categoryId, colorId, fabricId now properly convert empty strings to null
 - Migrated from Wouter to React Router v6 for routing across all 30+ component files
 - Implemented user address management with add/edit/delete functionality and default address support
 - Added pincode availability checking feature with serviceable pincode database

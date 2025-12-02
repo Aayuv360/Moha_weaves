@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "moha-secret-key-2024";
 
@@ -21,15 +22,36 @@ const storeAllocationSchema = z.object({
   quantity: z.number().int().min(0, "Quantity must be a non-negative integer"),
 });
 
+const isValidMediaUrl = (url: string): boolean => {
+  if (!url || url.trim() === "") return true;
+  if (url.startsWith("/objects/")) return true;
+  if (url.startsWith("https://images.unsplash.com/")) return true;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+const mediaUrlSchema = z.string().refine(
+  (url) => !url || isValidMediaUrl(url),
+  { message: "Invalid URL format - must be HTTPS or a valid object path" }
+).optional();
+
+const emptyToNull = z.string().transform(val => val === "" ? null : val).nullable().optional();
+
 const sareeBaseSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   price: z.string().or(z.number()).transform(val => String(val)),
-  categoryId: z.string().optional(),
-  colorId: z.string().optional(),
-  fabricId: z.string().optional(),
-  imageUrl: z.string().optional(),
-  sku: z.string().optional(),
+  categoryId: emptyToNull,
+  colorId: emptyToNull,
+  fabricId: emptyToNull,
+  imageUrl: z.string().optional().transform(val => val === "" ? null : val).nullable(),
+  images: z.array(z.string().refine(isValidMediaUrl, { message: "Invalid image URL" })).optional().default([]),
+  videoUrl: z.string().optional().transform(val => val === "" ? null : val).nullable(),
+  sku: z.string().optional().transform(val => val === "" ? null : val).nullable(),
   totalStock: z.number().int().min(0, "Total stock must be non-negative"),
   onlineStock: z.number().int().min(0, "Online stock must be non-negative"),
   distributionChannel: z.enum(["shop", "online", "both"]),
@@ -240,6 +262,75 @@ export async function registerRoutes(
       res.json(saree);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch saree" });
+    }
+  });
+
+  // ==================== FILE UPLOAD ROUTES ====================
+
+  // Serve uploaded files
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get presigned upload URL (requires inventory or admin auth)
+  app.post("/api/uploads/presigned-url", authAny, async (req, res) => {
+    try {
+      const { fileType } = req.body;
+      const objectStorageService = new ObjectStorageService();
+      const { uploadURL, objectPath, uploadToken } = await objectStorageService.getObjectEntityUploadURL(fileType || "image");
+      res.json({ uploadURL, objectPath, uploadToken });
+    } catch (error) {
+      console.error("Error getting presigned URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  // Confirm upload and get normalized path
+  app.post("/api/uploads/confirm", authAny, async (req, res) => {
+    try {
+      const { objectPath, uploadToken } = req.body;
+      if (!objectPath || !uploadToken) {
+        return res.status(400).json({ error: "objectPath and uploadToken are required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      
+      if (!objectStorageService.verifyUploadToken(uploadToken, objectPath)) {
+        return res.status(403).json({ error: "Invalid or expired upload token" });
+      }
+
+      if (!objectStorageService.isValidObjectPath(objectPath)) {
+        return res.status(400).json({ error: "Invalid object path" });
+      }
+
+      const userId = (req as any).user?.id;
+      try {
+        const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+        await objectStorageService.trySetObjectEntityAclPolicy(
+          objectPath,
+          {
+            owner: userId || "system",
+            visibility: "public",
+          }
+        );
+      } catch (fileError) {
+        return res.status(400).json({ error: "Upload not found - file may not have been uploaded" });
+      }
+
+      res.json({ objectPath });
+    } catch (error) {
+      console.error("Error confirming upload:", error);
+      res.status(500).json({ error: "Failed to confirm upload" });
     }
   });
 
