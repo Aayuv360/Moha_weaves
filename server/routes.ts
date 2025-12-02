@@ -1767,6 +1767,61 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== ADMIN SETTINGS ROUTES ====================
+
+  // Admin: Get all settings
+  app.get("/api/admin/settings", authAdmin, async (req, res) => {
+    try {
+      const settings = await storage.getAllSettings();
+      
+      // Add default values for known settings if not set
+      const settingsMap = new Map(settings.map(s => [s.key, s]));
+      
+      const allSettings = [
+        {
+          key: "return_window_days",
+          value: settingsMap.get("return_window_days")?.value || "7",
+          description: settingsMap.get("return_window_days")?.description || "Number of days customers have to initiate a return after delivery",
+          updatedAt: settingsMap.get("return_window_days")?.updatedAt || null,
+        },
+      ];
+      
+      res.json(allSettings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  // Admin: Update a setting
+  app.put("/api/admin/settings/:key", authAdmin, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { key } = req.params;
+      const { value, description } = req.body;
+      
+      // Validate known settings
+      if (key === "return_window_days") {
+        const days = parseInt(value);
+        if (isNaN(days) || days < 0 || days > 60) {
+          return res.status(400).json({ message: "Return window must be between 0 and 60 days" });
+        }
+      }
+      
+      await storage.setSetting(key, value.toString(), description, user.id);
+      
+      res.json({ 
+        key, 
+        value: value.toString(), 
+        description, 
+        updatedAt: new Date() 
+      });
+    } catch (error) {
+      console.error("Error updating setting:", error);
+      res.status(500).json({ message: "Failed to update setting" });
+    }
+  });
+
   // ==================== NOTIFICATION ROUTES ====================
 
   // User: Get notifications
@@ -1871,10 +1926,7 @@ export async function registerRoutes(
           break;
         case "delivered":
           notificationMessage = "Your order has been delivered. Enjoy your purchase!";
-          // Set return eligibility window (7 days from delivery)
-          const eligibleUntil = new Date();
-          eligibleUntil.setDate(eligibleUntil.getDate() + 7);
-          await storage.updateOrderStatus(req.params.id, status);
+          // Return eligibility is now set automatically in updateOrderWithStatusHistory
           break;
         case "cancelled":
           notificationMessage = "Your order has been cancelled.";

@@ -782,9 +782,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
+    const updateData: any = { 
+      status: status as any, 
+      updatedAt: new Date() 
+    };
+    
+    // When marking as delivered, set deliveredAt and calculate returnEligibleUntil
+    if (status === "delivered") {
+      const now = new Date();
+      updateData.deliveredAt = now;
+      
+      // Get return window setting, default to 7 days
+      const windowDays = await this.getSetting("return_window_days");
+      const days = windowDays ? parseInt(windowDays) : 7;
+      
+      const eligibleUntil = new Date(now);
+      eligibleUntil.setDate(eligibleUntil.getDate() + days);
+      updateData.returnEligibleUntil = eligibleUntil;
+    }
+    
     const [result] = await db
       .update(orders)
-      .set({ status: status as any, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(orders.id, id))
       .returning();
     return result || undefined;
@@ -1637,13 +1656,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateOrderWithStatusHistory(orderId: string, status: string, changedBy?: string, notes?: string): Promise<Order | undefined> {
+    // Get return window setting for delivered orders
+    let returnWindowDays = 7;
+    if (status === "delivered") {
+      const windowDays = await this.getSetting("return_window_days");
+      if (windowDays) returnWindowDays = parseInt(windowDays);
+    }
+    
     return await db.transaction(async (tx) => {
       const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
       if (!order) return undefined;
       
+      const updateData: any = { 
+        status: status as any,
+        updatedAt: new Date()
+      };
+      
+      // Set deliveredAt and returnEligibleUntil when marking as delivered
+      if (status === "delivered") {
+        const now = new Date();
+        updateData.deliveredAt = now;
+        const eligibleUntil = new Date(now);
+        eligibleUntil.setDate(eligibleUntil.getDate() + returnWindowDays);
+        updateData.returnEligibleUntil = eligibleUntil;
+      }
+      
       const [updatedOrder] = await tx
         .update(orders)
-        .set({ status: status as any })
+        .set(updateData)
         .where(eq(orders.id, orderId))
         .returning();
       
