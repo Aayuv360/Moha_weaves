@@ -64,7 +64,8 @@ const statusConfig: Record<string, { icon: typeof Clock; label: string; color: s
   pending: { icon: Clock, label: "Pending", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" },
   approved: { icon: CheckCircle, label: "Approved", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" },
   rejected: { icon: XCircle, label: "Rejected", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100" },
-  fulfilled: { icon: Package, label: "Fulfilled", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" },
+  dispatched: { icon: Package, label: "Dispatched", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" },
+  received: { icon: CheckCircle, label: "Received", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100" },
 };
 
 export default function StoreRequests() {
@@ -100,6 +101,22 @@ export default function StoreRequests() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to submit request", variant: "destructive" });
+    },
+  });
+
+  const markReceivedMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("PATCH", `/api/store/requests/${id}/received`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/store/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/store/stats"] });
+      toast({ title: "Success", description: "Stock marked as received" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to mark as received", variant: "destructive" });
     },
   });
 
@@ -226,6 +243,7 @@ export default function StoreRequests() {
                         <TableHead>Requested</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Notes</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -262,6 +280,18 @@ export default function StoreRequests() {
                             </TableCell>
                             <TableCell className="max-w-[200px] truncate text-muted-foreground">
                               {request.notes || "-"}
+                            </TableCell>
+                            <TableCell>
+                              {request.status === "dispatched" && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => markReceivedMutation.mutate(request.id)}
+                                  disabled={markReceivedMutation.isPending}
+                                  data-testid={`button-received-${request.id}`}
+                                >
+                                  Mark Received
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );

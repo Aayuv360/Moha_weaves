@@ -821,13 +821,20 @@ export async function registerRoutes(
   app.patch("/api/inventory/requests/:id/status", authInventory, async (req, res) => {
     try {
       const { status } = req.body;
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
       const request = await storage.updateStockRequestStatus(
         req.params.id,
         status,
         (req as any).user.id
       );
+      if (!request) {
+        return res.status(404).json({ message: "Request not found" });
+      }
       res.json(request);
     } catch (error) {
+      console.error("Error updating stock request status:", error);
       res.status(500).json({ message: "Failed to update request" });
     }
   });
@@ -1118,6 +1125,27 @@ export async function registerRoutes(
       res.json(request);
     } catch (error) {
       res.status(500).json({ message: "Failed to create request" });
+    }
+  });
+
+  app.patch("/api/store/requests/:id/received", authStore, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user.storeId) {
+        return res.status(400).json({ message: "No store assigned" });
+      }
+      const request = await storage.updateStockRequestStatus(
+        req.params.id,
+        "received",
+        user.id
+      );
+      if (!request) {
+        return res.status(404).json({ message: "Request not found" });
+      }
+      res.json(request);
+    } catch (error) {
+      console.error("Error marking request as received:", error);
+      res.status(500).json({ message: "Failed to update request" });
     }
   });
 

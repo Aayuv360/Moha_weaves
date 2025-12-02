@@ -54,7 +54,8 @@ const statusConfig: Record<string, { icon: typeof Clock; label: string; color: s
   pending: { icon: Clock, label: "Pending", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" },
   approved: { icon: CheckCircle, label: "Approved", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" },
   rejected: { icon: XCircle, label: "Rejected", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100" },
-  fulfilled: { icon: Package, label: "Fulfilled", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" },
+  dispatched: { icon: Truck, label: "Dispatched", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" },
+  received: { icon: Package, label: "Received", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100" },
 };
 
 export default function InventoryRequests() {
@@ -188,7 +189,8 @@ export default function InventoryRequests() {
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="fulfilled">Fulfilled</SelectItem>
+                  <SelectItem value="dispatched">Dispatched</SelectItem>
+                  <SelectItem value="received">Received</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -276,11 +278,11 @@ export default function InventoryRequests() {
                               {request.status === "approved" && (
                                 <Button
                                   size="sm"
-                                  onClick={() => updateStatusMutation.mutate({ id: request.id, status: "fulfilled" })}
+                                  onClick={() => updateStatusMutation.mutate({ id: request.id, status: "dispatched" })}
                                   disabled={updateStatusMutation.isPending}
-                                  data-testid={`button-fulfill-${request.id}`}
+                                  data-testid={`button-dispatch-${request.id}`}
                                 >
-                                  Mark Fulfilled
+                                  Mark Dispatched
                                 </Button>
                               )}
                             </TableCell>
