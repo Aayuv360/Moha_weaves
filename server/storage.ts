@@ -3,7 +3,7 @@ import {
   wishlist, cart, orders, orderItems, storeSales, storeSaleItems, stockRequests,
   userAddresses, serviceablePincodes,
   returnRequests, returnItems, refunds, productReviews, coupons, couponUsage,
-  notifications, orderStatusHistory,
+  notifications, orderStatusHistory, appSettings,
   type User, type InsertUser, type Category, type InsertCategory,
   type Color, type InsertColor, type Fabric, type InsertFabric,
   type Store, type InsertStore, type Saree, type InsertSaree,
@@ -215,6 +215,11 @@ export interface IStorage {
   getOrderStatusHistory(orderId: string): Promise<OrderStatusHistory[]>;
   addOrderStatusHistory(entry: InsertOrderStatusHistory): Promise<OrderStatusHistory>;
   updateOrderWithStatusHistory(orderId: string, status: string, changedBy?: string, notes?: string): Promise<Order | undefined>;
+
+  // App Settings
+  getSetting(key: string): Promise<string | null>;
+  setSetting(key: string, value: string, description?: string, updatedBy?: string): Promise<void>;
+  getAllSettings(): Promise<{ key: string; value: string; description: string | null; updatedAt: Date }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1636,7 +1641,6 @@ export class DatabaseStorage implements IStorage {
       const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
       if (!order) return undefined;
       
-      const previousStatus = order.status;
       const [updatedOrder] = await tx
         .update(orders)
         .set({ status: status as any })
@@ -1645,14 +1649,38 @@ export class DatabaseStorage implements IStorage {
       
       await tx.insert(orderStatusHistory).values({
         orderId,
-        previousStatus,
-        newStatus: status,
-        changedBy,
-        notes,
+        status: status as any,
+        note: notes,
+        updatedBy: changedBy,
       });
       
       return updatedOrder || undefined;
     });
+  }
+
+  // App Settings
+  async getSetting(key: string): Promise<string | null> {
+    const [result] = await db.select().from(appSettings).where(eq(appSettings.key, key));
+    return result?.value ?? null;
+  }
+
+  async setSetting(key: string, value: string, description?: string, updatedBy?: string): Promise<void> {
+    await db
+      .insert(appSettings)
+      .values({ key, value, description, updatedBy, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: appSettings.key,
+        set: { value, description, updatedBy, updatedAt: new Date() },
+      });
+  }
+
+  async getAllSettings(): Promise<{ key: string; value: string; description: string | null; updatedAt: Date }[]> {
+    return db.select({
+      key: appSettings.key,
+      value: appSettings.value,
+      description: appSettings.description,
+      updatedAt: appSettings.updatedAt,
+    }).from(appSettings).orderBy(asc(appSettings.key));
   }
 }
 
