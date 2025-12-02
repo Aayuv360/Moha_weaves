@@ -55,16 +55,53 @@ const navItems = [
   { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
 ];
 
-const statusConfig: Record<string, { icon: typeof Clock; label: string; color: string }> = {
-  pending: { icon: Clock, label: "Pending", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" },
-  confirmed: { icon: CheckCircle, label: "Confirmed", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" },
-  processing: { icon: Package, label: "Processing", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100" },
-  shipped: { icon: Truck, label: "Shipped", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100" },
-  delivered: { icon: CheckCircle, label: "Delivered", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" },
-  cancelled: { icon: XCircle, label: "Cancelled", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100" },
+const statusConfig: Record<
+  string,
+  { icon: typeof Clock; label: string; color: string }
+> = {
+  pending: {
+    icon: Clock,
+    label: "Pending",
+    color:
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100",
+  },
+  confirmed: {
+    icon: CheckCircle,
+    label: "Confirmed",
+    color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100",
+  },
+  processing: {
+    icon: Package,
+    label: "Processing",
+    color:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100",
+  },
+  shipped: {
+    icon: Truck,
+    label: "Shipped",
+    color:
+      "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100",
+  },
+  delivered: {
+    icon: CheckCircle,
+    label: "Delivered",
+    color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100",
+  },
+  cancelled: {
+    icon: XCircle,
+    label: "Cancelled",
+    color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100",
+  },
 };
 
-const orderStatuses = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
+const orderStatuses = [
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+];
 
 export default function AdminOrders() {
   const navigate = useNavigate();
@@ -80,7 +117,11 @@ export default function AdminOrders() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const response = await apiRequest("PATCH", `/api/admin/orders/${id}/status`, { status });
+      const response = await apiRequest(
+        "PATCH",
+        `/api/admin/orders/${id}/status`,
+        { status },
+      );
       return response.json();
     },
     onSuccess: () => {
@@ -89,7 +130,11 @@ export default function AdminOrders() {
       toast({ title: "Success", description: "Order status updated" });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to update status",
+        variant: "destructive",
+      });
     },
   });
 
@@ -118,7 +163,7 @@ export default function AdminOrders() {
   };
 
   const filteredOrders = orders?.filter(
-    (order) => filterStatus === "all" || order.status === filterStatus
+    (order) => filterStatus === "all" || order.status === filterStatus,
   );
 
   if (!user || user.role !== "admin") {
@@ -180,7 +225,9 @@ export default function AdminOrders() {
             <Sidebar />
           </SheetContent>
         </Sheet>
-        <span className="font-serif text-lg font-semibold text-primary">Moha Admin</span>
+        <span className="font-serif text-lg font-semibold text-primary">
+          Moha Admin
+        </span>
         <div className="w-10" />
       </header>
 
@@ -193,17 +240,29 @@ export default function AdminOrders() {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
               <div>
-                <h1 className="text-2xl font-semibold" data-testid="text-page-title">Orders</h1>
+                <h1
+                  className="text-2xl font-semibold"
+                  data-testid="text-page-title"
+                >
+                  Orders
+                </h1>
                 <p className="text-muted-foreground">Manage customer orders</p>
               </div>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-48" data-testid="select-filter-status">
+                <SelectTrigger
+                  className="w-48"
+                  data-testid="select-filter-status"
+                >
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Orders</SelectItem>
                   {orderStatuses.map((status) => (
-                    <SelectItem key={status} value={status} className="capitalize">
+                    <SelectItem
+                      key={status}
+                      value={status}
+                      className="capitalize"
+                    >
                       {status.charAt(0).toUpperCase() + status.slice(1)}
                     </SelectItem>
                   ))}
@@ -234,11 +293,15 @@ export default function AdminOrders() {
                       </TableHeader>
                       <TableBody>
                         {filteredOrders.map((order) => {
-                          const status = statusConfig[order.status] || statusConfig.pending;
+                          const status =
+                            statusConfig[order.status] || statusConfig.pending;
                           const StatusIcon = status.icon;
 
                           return (
-                            <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                            <TableRow
+                              key={order.id}
+                              data-testid={`row-order-${order.id}`}
+                            >
                               <TableCell className="font-mono text-sm">
                                 #{order.id.slice(0, 8).toUpperCase()}
                               </TableCell>
@@ -247,21 +310,24 @@ export default function AdminOrders() {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
-                                  {order.items.slice(0, 2).map((item) => (
+                                  {order.items?.slice(0, 2).map((item) => (
                                     <div
                                       key={item.id}
                                       className="w-10 h-12 rounded overflow-hidden bg-muted"
                                     >
                                       <img
-                                        src={item.saree.imageUrl || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=50"}
-                                        alt={item.saree.name}
+                                        src={
+                                          item.saree?.imageUrl ||
+                                          "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=50"
+                                        }
+                                        alt={item.saree?.name || "Saree"}
                                         className="w-full h-full object-cover"
                                       />
                                     </div>
                                   ))}
-                                  {order.items.length > 2 && (
+                                  {(order.items?.length || 0) > 2 && (
                                     <span className="text-xs text-muted-foreground">
-                                      +{order.items.length - 2}
+                                      +{(order.items?.length || 0) - 2}
                                     </span>
                                   )}
                                 </div>
@@ -279,7 +345,10 @@ export default function AdminOrders() {
                                 <Select
                                   value={order.status}
                                   onValueChange={(value) =>
-                                    updateStatusMutation.mutate({ id: order.id, status: value })
+                                    updateStatusMutation.mutate({
+                                      id: order.id,
+                                      status: value,
+                                    })
                                   }
                                   disabled={updateStatusMutation.isPending}
                                 >
@@ -291,7 +360,11 @@ export default function AdminOrders() {
                                   </SelectTrigger>
                                   <SelectContent>
                                     {orderStatuses.map((s) => (
-                                      <SelectItem key={s} value={s} className="capitalize">
+                                      <SelectItem
+                                        key={s}
+                                        value={s}
+                                        className="capitalize"
+                                      >
                                         {s.charAt(0).toUpperCase() + s.slice(1)}
                                       </SelectItem>
                                     ))}
