@@ -14,6 +14,8 @@ import {
   LogOut,
   Menu,
   Mail,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +39,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -45,6 +57,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -65,6 +78,16 @@ const navItems = [
 
 type SafeUser = Omit<User, "password">;
 
+interface StaffFormData {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  role: "inventory" | "store";
+  storeId: string;
+  isActive: boolean;
+}
+
 export default function AdminStaff() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -72,13 +95,17 @@ export default function AdminStaff() {
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<SafeUser | null>(null);
+  const [staffToDelete, setStaffToDelete] = useState<SafeUser | null>(null);
+  const [formData, setFormData] = useState<StaffFormData>({
     email: "",
     password: "",
     name: "",
     phone: "",
-    role: "inventory" as "inventory" | "store",
+    role: "inventory",
     storeId: "",
+    isActive: true,
   });
 
   const { data: staff, isLoading } = useQuery<SafeUser[]>({
@@ -96,7 +123,7 @@ export default function AdminStaff() {
   const allStaff = [...(staff || []), ...(storeStaff || [])];
 
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: StaffFormData) => {
       const response = await apiRequest("POST", "/api/admin/users", data);
       return response.json();
     },
@@ -110,12 +137,48 @@ export default function AdminStaff() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<StaffFormData> }) => {
+      const payload = { ...data };
+      if (!payload.password) {
+        delete payload.password;
+      }
+      const response = await apiRequest("PATCH", `/api/admin/users/${id}`, payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Success", description: "Staff member updated successfully" });
+      handleCloseDialog();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update staff member", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/users/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Success", description: "Staff member deleted successfully" });
+      setDeleteDialogOpen(false);
+      setStaffToDelete(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete staff member", variant: "destructive" });
+    },
+  });
+
   const handleLogout = async () => {
     await logout();
     navigate("/admin/login");
   };
 
   const handleOpenCreate = () => {
+    setEditingStaff(null);
     setFormData({
       email: "",
       password: "",
@@ -123,17 +186,48 @@ export default function AdminStaff() {
       phone: "",
       role: "inventory",
       storeId: "",
+      isActive: true,
     });
     setDialogOpen(true);
   };
 
+  const handleOpenEdit = (member: SafeUser) => {
+    setEditingStaff(member);
+    setFormData({
+      email: member.email,
+      password: "",
+      name: member.name,
+      phone: member.phone || "",
+      role: member.role as "inventory" | "store",
+      storeId: member.storeId || "",
+      isActive: member.isActive ?? true,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleOpenDelete = (member: SafeUser) => {
+    setStaffToDelete(member);
+    setDeleteDialogOpen(true);
+  };
+
   const handleCloseDialog = () => {
     setDialogOpen(false);
+    setEditingStaff(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    if (editingStaff) {
+      updateMutation.mutate({ id: editingStaff.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (staffToDelete) {
+      deleteMutation.mutate(staffToDelete.id);
+    }
   };
 
   const getStoreName = (storeId: string | null) => {
@@ -244,6 +338,7 @@ export default function AdminStaff() {
                         <TableHead>Role</TableHead>
                         <TableHead>Store</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -269,6 +364,26 @@ export default function AdminStaff() {
                               {member.isActive ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEdit(member)}
+                                data-testid={`button-edit-staff-${member.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenDelete(member)}
+                                data-testid={`button-delete-staff-${member.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -287,8 +402,10 @@ export default function AdminStaff() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Staff Member</DialogTitle>
-            <DialogDescription>Create a new inventory or store staff account</DialogDescription>
+            <DialogTitle>{editingStaff ? "Edit Staff Member" : "Add Staff Member"}</DialogTitle>
+            <DialogDescription>
+              {editingStaff ? "Update staff member details" : "Create a new inventory or store staff account"}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -313,13 +430,15 @@ export default function AdminStaff() {
               />
             </div>
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">
+                Password {editingStaff && <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}
+              </Label>
               <Input
                 id="password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
+                required={!editingStaff}
                 minLength={6}
                 data-testid="input-password"
               />
@@ -371,17 +490,55 @@ export default function AdminStaff() {
                 </Select>
               </div>
             )}
+            {editingStaff && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="isActive"
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                  data-testid="switch-active"
+                />
+                <Label htmlFor="isActive">Active</Label>
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleCloseDialog}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
-                {createMutation.isPending ? "Creating..." : "Create"}
+              <Button 
+                type="submit" 
+                disabled={createMutation.isPending || updateMutation.isPending} 
+                data-testid="button-submit"
+              >
+                {(createMutation.isPending || updateMutation.isPending) 
+                  ? "Saving..." 
+                  : (editingStaff ? "Save Changes" : "Create")}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Staff Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{staffToDelete?.name}"? This action will deactivate their account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

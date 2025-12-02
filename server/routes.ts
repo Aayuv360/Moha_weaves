@@ -553,6 +553,40 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/admin/users/:id", authAdmin, async (req, res) => {
+    try {
+      const { email, password, name, phone, role, storeId, isActive } = req.body;
+      const updateData: Record<string, unknown> = { email, name, phone, role, storeId, isActive };
+      
+      if (password) {
+        updateData.password = await bcrypt.hash(password, 10);
+      }
+      
+      Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+      
+      const user = await storage.updateUser(req.params.id, updateData);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      const { password: _, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", authAdmin, async (req, res) => {
+    try {
+      const user = await storage.updateUser(req.params.id, { isActive: false });
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   // Admin saree management
   app.get("/api/admin/sarees", authAdmin, async (req, res) => {
     try {
@@ -645,6 +679,30 @@ export async function registerRoutes(
       res.json(store);
     } catch (error) {
       res.status(500).json({ message: "Failed to create store" });
+    }
+  });
+
+  app.patch("/api/admin/stores/:id", authAdmin, async (req, res) => {
+    try {
+      const store = await storage.updateStore(req.params.id, req.body);
+      if (!store) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+      res.json(store);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update store" });
+    }
+  });
+
+  app.delete("/api/admin/stores/:id", authAdmin, async (req, res) => {
+    try {
+      const store = await storage.updateStore(req.params.id, { isActive: false });
+      if (!store) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete store" });
     }
   });
 

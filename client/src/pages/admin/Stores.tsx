@@ -15,10 +15,11 @@ import {
   Menu,
   MapPin,
   Phone,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -37,6 +38,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -66,6 +78,9 @@ export default function AdminStores() {
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingStore, setEditingStore] = useState<Store | null>(null);
+  const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
   const [formData, setFormData] = useState({ name: "", address: "", phone: "", isActive: true });
 
   const { data: stores, isLoading } = useQuery<Store[]>({
@@ -87,23 +102,82 @@ export default function AdminStores() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+      const response = await apiRequest("PATCH", `/api/admin/stores/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stores"] });
+      toast({ title: "Success", description: "Store updated successfully" });
+      handleCloseDialog();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update store", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/stores/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stores"] });
+      toast({ title: "Success", description: "Store deleted successfully" });
+      setDeleteDialogOpen(false);
+      setStoreToDelete(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete store", variant: "destructive" });
+    },
+  });
+
   const handleLogout = async () => {
     await logout();
     navigate("/admin/login");
   };
 
   const handleOpenCreate = () => {
+    setEditingStore(null);
     setFormData({ name: "", address: "", phone: "", isActive: true });
     setDialogOpen(true);
   };
 
+  const handleOpenEdit = (store: Store) => {
+    setEditingStore(store);
+    setFormData({
+      name: store.name,
+      address: store.address || "",
+      phone: store.phone || "",
+      isActive: store.isActive ?? true,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleOpenDelete = (store: Store) => {
+    setStoreToDelete(store);
+    setDeleteDialogOpen(true);
+  };
+
   const handleCloseDialog = () => {
     setDialogOpen(false);
+    setEditingStore(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    if (editingStore) {
+      updateMutation.mutate({ id: editingStore.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (storeToDelete) {
+      deleteMutation.mutate(storeToDelete.id);
+    }
   };
 
   if (!user || user.role !== "admin") {
@@ -203,6 +277,7 @@ export default function AdminStores() {
                         <TableHead>Address</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -233,6 +308,26 @@ export default function AdminStores() {
                               {store.isActive ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEdit(store)}
+                                data-testid={`button-edit-store-${store.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenDelete(store)}
+                                data-testid={`button-delete-store-${store.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -251,8 +346,10 @@ export default function AdminStores() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Store</DialogTitle>
-            <DialogDescription>Create a new physical store outlet</DialogDescription>
+            <DialogTitle>{editingStore ? "Edit Store" : "Add Store"}</DialogTitle>
+            <DialogDescription>
+              {editingStore ? "Update store details" : "Create a new physical store outlet"}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -298,13 +395,38 @@ export default function AdminStores() {
               <Button type="button" variant="outline" onClick={handleCloseDialog}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
-                {createMutation.isPending ? "Saving..." : "Create"}
+              <Button 
+                type="submit" 
+                disabled={createMutation.isPending || updateMutation.isPending} 
+                data-testid="button-submit"
+              >
+                {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : (editingStore ? "Save Changes" : "Create")}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Store</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{storeToDelete?.name}"? This action will deactivate the store.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
