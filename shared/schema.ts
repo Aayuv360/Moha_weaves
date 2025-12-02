@@ -10,6 +10,14 @@ export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "
 export const distributionChannelEnum = pgEnum("distribution_channel", ["shop", "online", "both"]);
 export const requestStatusEnum = pgEnum("request_status", ["pending", "approved", "dispatched", "received", "rejected"]);
 export const storeSaleTypeEnum = pgEnum("store_sale_type", ["walk_in", "reserved"]);
+export const paymentStatusEnum = pgEnum("payment_status", ["pending", "paid", "failed", "refunded", "partially_refunded"]);
+export const paymentMethodEnum = pgEnum("payment_method", ["cod", "online", "upi", "card", "netbanking"]);
+export const returnStatusEnum = pgEnum("return_status", ["requested", "approved", "rejected", "pickup_scheduled", "picked_up", "received", "inspected", "completed", "cancelled"]);
+export const returnReasonEnum = pgEnum("return_reason", ["defective", "wrong_item", "not_as_described", "size_issue", "color_mismatch", "damaged_in_shipping", "changed_mind", "other"]);
+export const returnResolutionEnum = pgEnum("return_resolution", ["refund", "exchange", "store_credit"]);
+export const refundStatusEnum = pgEnum("refund_status", ["pending", "initiated", "processing", "completed", "failed"]);
+export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "fixed", "free_shipping"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["order", "return", "refund", "promotion", "system"]);
 
 // Users table - supports all roles
 export const users = pgTable("users", {
@@ -112,10 +120,21 @@ export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
+  finalAmount: decimal("final_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   status: orderStatusEnum("status").notNull().default("pending"),
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
+  paymentMethod: paymentMethodEnum("payment_method").default("cod"),
+  paymentId: text("payment_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
   shippingAddress: text("shipping_address").notNull(),
   phone: text("phone").notNull(),
+  trackingNumber: text("tracking_number"),
+  estimatedDelivery: timestamp("estimated_delivery"),
+  deliveredAt: timestamp("delivered_at"),
+  couponId: varchar("coupon_id"),
   notes: text("notes"),
+  returnEligibleUntil: timestamp("return_eligible_until"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -188,6 +207,123 @@ export const stockRequests = pgTable("stock_requests", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Return requests
+export const returnRequests = pgTable("return_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => orders.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  status: returnStatusEnum("status").notNull().default("requested"),
+  reason: returnReasonEnum("reason").notNull(),
+  reasonDetails: text("reason_details"),
+  resolution: returnResolutionEnum("resolution").notNull().default("refund"),
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+  pickupAddress: text("pickup_address"),
+  pickupScheduledAt: timestamp("pickup_scheduled_at"),
+  pickedUpAt: timestamp("picked_up_at"),
+  receivedAt: timestamp("received_at"),
+  inspectionNotes: text("inspection_notes"),
+  processedBy: varchar("processed_by"),
+  exchangeOrderId: varchar("exchange_order_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Return items (individual items in a return request)
+export const returnItems = pgTable("return_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  returnRequestId: varchar("return_request_id").references(() => returnRequests.id).notNull(),
+  orderItemId: varchar("order_item_id").references(() => orderItems.id).notNull(),
+  quantity: integer("quantity").notNull(),
+  condition: text("condition"),
+  isRestockable: boolean("is_restockable").default(true),
+});
+
+// Refunds
+export const refunds = pgTable("refunds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  returnRequestId: varchar("return_request_id").references(() => returnRequests.id),
+  orderId: varchar("order_id").references(() => orders.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: refundStatusEnum("status").notNull().default("pending"),
+  refundMethod: text("refund_method"),
+  stripeRefundId: text("stripe_refund_id"),
+  reason: text("reason"),
+  processedBy: varchar("processed_by"),
+  initiatedAt: timestamp("initiated_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Product reviews
+export const productReviews = pgTable("product_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sareeId: varchar("saree_id").references(() => sarees.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  orderId: varchar("order_id").references(() => orders.id),
+  rating: integer("rating").notNull(),
+  title: text("title"),
+  comment: text("comment"),
+  images: text("images").array(),
+  isVerifiedPurchase: boolean("is_verified_purchase").default(false),
+  isApproved: boolean("is_approved").default(true),
+  helpfulCount: integer("helpful_count").default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Coupons
+export const coupons = pgTable("coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: couponTypeEnum("type").notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }),
+  maxDiscount: decimal("max_discount", { precision: 10, scale: 2 }),
+  usageLimit: integer("usage_limit"),
+  usedCount: integer("used_count").default(0),
+  perUserLimit: integer("per_user_limit").default(1),
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  categoryId: varchar("category_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Coupon usage tracking
+export const couponUsage = pgTable("coupon_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  couponId: varchar("coupon_id").references(() => coupons.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  orderId: varchar("order_id").references(() => orders.id).notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull(),
+  usedAt: timestamp("used_at").notNull().defaultNow(),
+});
+
+// Notifications
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  type: notificationTypeEnum("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  data: text("data"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Order status history for tracking
+export const orderStatusHistory = pgTable("order_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => orders.id).notNull(),
+  status: orderStatusEnum("status").notNull(),
+  note: text("note"),
+  updatedBy: varchar("updated_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   store: one(stores, { fields: [users.storeId], references: [stores.id] }),
@@ -197,6 +333,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   storeSales: many(storeSales),
   stockRequests: many(stockRequests),
   addresses: many(userAddresses),
+  returnRequests: many(returnRequests),
+  refunds: many(refunds),
+  reviews: many(productReviews),
+  notifications: many(notifications),
 }));
 
 export const userAddressesRelations = relations(userAddresses, ({ one }) => ({
@@ -232,6 +372,7 @@ export const sareesRelations = relations(sarees, ({ one, many }) => ({
   storeInventory: many(storeInventory),
   storeSaleItems: many(storeSaleItems),
   stockRequests: many(stockRequests),
+  reviews: many(productReviews),
 }));
 
 export const storeInventoryRelations = relations(storeInventory, ({ one }) => ({
@@ -252,6 +393,11 @@ export const cartRelations = relations(cart, ({ one }) => ({
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
   items: many(orderItems),
+  returnRequests: many(returnRequests),
+  refunds: many(refunds),
+  statusHistory: many(orderStatusHistory),
+  reviews: many(productReviews),
+  coupon: one(coupons, { fields: [orders.couponId], references: [coupons.id] }),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -276,6 +422,49 @@ export const stockRequestsRelations = relations(stockRequests, ({ one }) => ({
   saree: one(sarees, { fields: [stockRequests.sareeId], references: [sarees.id] }),
 }));
 
+export const returnRequestsRelations = relations(returnRequests, ({ one, many }) => ({
+  order: one(orders, { fields: [returnRequests.orderId], references: [orders.id] }),
+  user: one(users, { fields: [returnRequests.userId], references: [users.id] }),
+  items: many(returnItems),
+  refund: many(refunds),
+}));
+
+export const returnItemsRelations = relations(returnItems, ({ one }) => ({
+  returnRequest: one(returnRequests, { fields: [returnItems.returnRequestId], references: [returnRequests.id] }),
+  orderItem: one(orderItems, { fields: [returnItems.orderItemId], references: [orderItems.id] }),
+}));
+
+export const refundsRelations = relations(refunds, ({ one }) => ({
+  returnRequest: one(returnRequests, { fields: [refunds.returnRequestId], references: [returnRequests.id] }),
+  order: one(orders, { fields: [refunds.orderId], references: [orders.id] }),
+  user: one(users, { fields: [refunds.userId], references: [users.id] }),
+}));
+
+export const productReviewsRelations = relations(productReviews, ({ one }) => ({
+  saree: one(sarees, { fields: [productReviews.sareeId], references: [sarees.id] }),
+  user: one(users, { fields: [productReviews.userId], references: [users.id] }),
+  order: one(orders, { fields: [productReviews.orderId], references: [orders.id] }),
+}));
+
+export const couponsRelations = relations(coupons, ({ many }) => ({
+  usage: many(couponUsage),
+  orders: many(orders),
+}));
+
+export const couponUsageRelations = relations(couponUsage, ({ one }) => ({
+  coupon: one(coupons, { fields: [couponUsage.couponId], references: [coupons.id] }),
+  user: one(users, { fields: [couponUsage.userId], references: [users.id] }),
+  order: one(orders, { fields: [couponUsage.orderId], references: [orders.id] }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
+}));
+
+export const orderStatusHistoryRelations = relations(orderStatusHistory, ({ one }) => ({
+  order: one(orders, { fields: [orderStatusHistory.orderId], references: [orders.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
@@ -293,6 +482,14 @@ export const insertStoreSaleItemSchema = createInsertSchema(storeSaleItems).omit
 export const insertStockRequestSchema = createInsertSchema(stockRequests).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserAddressSchema = createInsertSchema(userAddresses).omit({ id: true, createdAt: true });
 export const insertServiceablePincodeSchema = createInsertSchema(serviceablePincodes).omit({ id: true, createdAt: true });
+export const insertReturnRequestSchema = createInsertSchema(returnRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertReturnItemSchema = createInsertSchema(returnItems).omit({ id: true });
+export const insertRefundSchema = createInsertSchema(refunds).omit({ id: true, createdAt: true });
+export const insertProductReviewSchema = createInsertSchema(productReviews).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, createdAt: true });
+export const insertCouponUsageSchema = createInsertSchema(couponUsage).omit({ id: true, usedAt: true });
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export const insertOrderStatusHistorySchema = createInsertSchema(orderStatusHistory).omit({ id: true, createdAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -327,6 +524,22 @@ export type UserAddress = typeof userAddresses.$inferSelect;
 export type InsertUserAddress = z.infer<typeof insertUserAddressSchema>;
 export type ServiceablePincode = typeof serviceablePincodes.$inferSelect;
 export type InsertServiceablePincode = z.infer<typeof insertServiceablePincodeSchema>;
+export type ReturnRequest = typeof returnRequests.$inferSelect;
+export type InsertReturnRequest = z.infer<typeof insertReturnRequestSchema>;
+export type ReturnItem = typeof returnItems.$inferSelect;
+export type InsertReturnItem = z.infer<typeof insertReturnItemSchema>;
+export type Refund = typeof refunds.$inferSelect;
+export type InsertRefund = z.infer<typeof insertRefundSchema>;
+export type ProductReview = typeof productReviews.$inferSelect;
+export type InsertProductReview = z.infer<typeof insertProductReviewSchema>;
+export type Coupon = typeof coupons.$inferSelect;
+export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+export type CouponUsage = typeof couponUsage.$inferSelect;
+export type InsertCouponUsage = z.infer<typeof insertCouponUsageSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type OrderStatusHistory = typeof orderStatusHistory.$inferSelect;
+export type InsertOrderStatusHistory = z.infer<typeof insertOrderStatusHistorySchema>;
 
 // Extended types for frontend use
 export type SareeWithDetails = Saree & {
@@ -355,4 +568,27 @@ export type StockRequestWithDetails = StockRequest & {
 export type StoreSaleWithItems = StoreSale & {
   items: (StoreSaleItem & { saree: SareeWithDetails })[];
   store: Store;
+};
+
+export type SareeWithReviews = SareeWithDetails & {
+  reviews?: ProductReview[];
+  averageRating?: number;
+  reviewCount?: number;
+};
+
+export type ReturnRequestWithDetails = ReturnRequest & {
+  order: OrderWithItems;
+  user: User;
+  items: (ReturnItem & { orderItem: OrderItem & { saree: SareeWithDetails } })[];
+  refund?: Refund;
+};
+
+export type RefundWithDetails = Refund & {
+  returnRequest?: ReturnRequest;
+  order: Order;
+  user: User;
+};
+
+export type CouponWithUsage = Coupon & {
+  usageCount?: number;
 };
