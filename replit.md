@@ -194,6 +194,8 @@ All user addresses are validated with:
 - `GET /objects/:objectPath` - Serve uploaded files
 
 ## Recent Changes (December 2024)
+- **Fixed stock request status enum** - Changed from invalid "fulfilled" to proper statuses "dispatched" and "received" matching database enum
+- **Added store "Mark Received" action** - Store managers can now mark dispatched stock requests as received via new endpoint `/api/store/requests/:id/received`
 - **Added multiple image and video upload for sarees** - Inventory staff can upload main image, additional images (up to 5), and video
 - **Implemented secure file upload** - Token-based presigned URL verification prevents unauthorized uploads
 - **Added URL validation** - Media URLs are validated to ensure only HTTPS or object storage paths are accepted
@@ -214,3 +216,11 @@ All user addresses are validated with:
 - Admin sarees page now shows read-only stock overview
 - Added distinct navigation icons: Shirt icon for Sarees, Warehouse icon for Stock Management
 - All inventory saree endpoints protected with authInventory middleware
+
+## Stock Request Workflow
+The stock request lifecycle follows these statuses:
+1. **pending** - Store creates request, awaiting inventory review
+2. **approved** - Inventory staff approves request  
+3. **dispatched** - Inventory staff marks as dispatched to store
+4. **received** - Store manager confirms receipt of stock
+5. **rejected** - Request denied by inventory staff
