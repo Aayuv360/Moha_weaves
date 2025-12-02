@@ -234,6 +234,17 @@ Frontend sends → Backend transforms:
 - Return/exchange status notifications
 - Refund processing notifications
 
+### Admin Settings System
+- Configurable return window setting (0-60 days, default: 7)
+- Settings stored in `app_settings` table with key-value pairs
+- Admin Settings page at `/admin/settings`
+- Return eligibility calculated automatically when orders are delivered
+- Legacy orders use fallback calculation: deliveredAt + configured window
+
+### Admin Settings API
+- `GET /api/admin/settings` - Get all application settings
+- `PUT /api/admin/settings/:key` - Update a specific setting
+
 ## Recent Changes (December 2024)
 - **Fixed coupon API field mapping** - Backend now correctly maps frontend field names (expiresAt→validUntil, maxUsageLimit→usageLimit) and provides sensible defaults (validFrom=now, validUntil=1 year)
 - **Fixed stock request status enum** - Changed from invalid "fulfilled" to proper statuses "dispatched" and "received" matching database enum
