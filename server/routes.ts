@@ -1647,7 +1647,16 @@ export async function registerRoutes(
   // Admin: Create coupon
   app.post("/api/admin/coupons", authAdmin, async (req, res) => {
     try {
-      const { code, type, value, minOrderAmount, maxDiscount, validFrom, validUntil, maxUsage, maxUsagePerUser, description } = req.body;
+      const { code, type, value, minOrderAmount, maxDiscount, maxUsageLimit, perUserLimit, expiresAt, validFrom, isActive } = req.body;
+      
+      if (!code || !type) {
+        return res.status(400).json({ message: "Code and type are required" });
+      }
+      
+      // Value is required for percentage and fixed types
+      if ((type === "percentage" || type === "fixed") && (value === undefined || value === null || value === "")) {
+        return res.status(400).json({ message: "Value is required for percentage and fixed discount types" });
+      }
       
       // Check if code already exists
       const existing = await storage.getCouponByCode(code);
@@ -1655,17 +1664,23 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Coupon code already exists" });
       }
       
+      // Set default dates if not provided
+      const now = new Date();
+      const oneYearLater = new Date(now);
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+      
       const coupon = await storage.createCoupon({
-        code,
+        code: code.toUpperCase(),
+        name: code.toUpperCase(),
         type,
-        value,
-        minOrderAmount,
-        maxDiscount,
-        validFrom: validFrom ? new Date(validFrom) : undefined,
-        validUntil: validUntil ? new Date(validUntil) : undefined,
-        maxUsage,
-        maxUsagePerUser,
-        description,
+        value: value !== undefined && value !== null && value !== "" ? String(value) : "0",
+        minOrderAmount: minOrderAmount !== undefined && minOrderAmount !== null && minOrderAmount !== "" ? String(minOrderAmount) : null,
+        maxDiscount: maxDiscount !== undefined && maxDiscount !== null && maxDiscount !== "" ? String(maxDiscount) : null,
+        usageLimit: maxUsageLimit !== undefined && maxUsageLimit !== null && maxUsageLimit !== "" ? Number(maxUsageLimit) : null,
+        perUserLimit: perUserLimit !== undefined && perUserLimit !== null && perUserLimit !== "" ? Number(perUserLimit) : null,
+        validFrom: validFrom ? new Date(validFrom) : now,
+        validUntil: expiresAt ? new Date(expiresAt) : oneYearLater,
+        isActive: isActive !== undefined ? isActive : true,
       });
       
       res.json(coupon);
@@ -1678,12 +1693,30 @@ export async function registerRoutes(
   // Admin: Update coupon
   app.patch("/api/admin/coupons/:id", authAdmin, async (req, res) => {
     try {
-      const coupon = await storage.updateCoupon(req.params.id, req.body);
+      const { code, type, value, minOrderAmount, maxDiscount, maxUsageLimit, perUserLimit, expiresAt, validFrom, isActive } = req.body;
+      
+      const updateData: any = {};
+      if (code !== undefined) {
+        updateData.code = code.toUpperCase();
+        updateData.name = code.toUpperCase();
+      }
+      if (type !== undefined) updateData.type = type;
+      if (value !== undefined) updateData.value = value !== null && value !== "" ? String(value) : "0";
+      if (minOrderAmount !== undefined) updateData.minOrderAmount = minOrderAmount !== null && minOrderAmount !== "" ? String(minOrderAmount) : null;
+      if (maxDiscount !== undefined) updateData.maxDiscount = maxDiscount !== null && maxDiscount !== "" ? String(maxDiscount) : null;
+      if (maxUsageLimit !== undefined) updateData.usageLimit = maxUsageLimit !== null && maxUsageLimit !== "" ? Number(maxUsageLimit) : null;
+      if (perUserLimit !== undefined) updateData.perUserLimit = perUserLimit !== null && perUserLimit !== "" ? Number(perUserLimit) : null;
+      if (validFrom !== undefined) updateData.validFrom = validFrom ? new Date(validFrom) : null;
+      if (expiresAt !== undefined) updateData.validUntil = expiresAt ? new Date(expiresAt) : null;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      
+      const coupon = await storage.updateCoupon(req.params.id, updateData);
       if (!coupon) {
         return res.status(404).json({ message: "Coupon not found" });
       }
       res.json(coupon);
     } catch (error) {
+      console.error("Error updating coupon:", error);
       res.status(500).json({ message: "Failed to update coupon" });
     }
   });

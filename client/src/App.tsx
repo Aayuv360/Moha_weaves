@@ -32,6 +32,8 @@ import AdminUsers from "@/pages/admin/Users";
 import AdminStaff from "@/pages/admin/Staff";
 import AdminStores from "@/pages/admin/Stores";
 import AdminOrders from "@/pages/admin/Orders";
+import AdminCoupons from "@/pages/admin/Coupons";
+import AdminReviews from "@/pages/admin/Reviews";
 
 import InventoryLogin from "@/pages/inventory/Login";
 import InventoryDashboard from "@/pages/inventory/Dashboard";
@@ -40,6 +42,7 @@ import InventoryStock from "@/pages/inventory/Stock";
 import InventoryStockDistribution from "@/pages/inventory/StockDistribution";
 import InventoryRequests from "@/pages/inventory/Requests";
 import InventoryOrders from "@/pages/inventory/Orders";
+import InventoryReturns from "@/pages/inventory/Returns";
 
 import StoreLogin from "@/pages/store/Login";
 import StoreDashboard from "@/pages/store/Dashboard";
@@ -104,6 +107,8 @@ function Router() {
         <Route path="/admin/staff" element={<AdminStaff />} />
         <Route path="/admin/stores" element={<AdminStores />} />
         <Route path="/admin/orders" element={<AdminOrders />} />
+        <Route path="/admin/coupons" element={<AdminCoupons />} />
+        <Route path="/admin/reviews" element={<AdminReviews />} />
         
         {/* Inventory module */}
         <Route path="/inventory/login" element={<InventoryLogin />} />
@@ -113,6 +118,7 @@ function Router() {
         <Route path="/inventory/distribution" element={<InventoryStockDistribution />} />
         <Route path="/inventory/requests" element={<InventoryRequests />} />
         <Route path="/inventory/orders" element={<InventoryOrders />} />
+        <Route path="/inventory/returns" element={<InventoryReturns />} />
         
         {/* Store module */}
         <Route path="/store/login" element={<StoreLogin />} />

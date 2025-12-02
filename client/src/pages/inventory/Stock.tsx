@@ -17,6 +17,7 @@ import {
   BarChart3,
   Warehouse,
   Shirt,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,6 +62,7 @@ const navItems = [
   { icon: BarChart3, label: "Stock Distribution", href: "/inventory/distribution" },
   { icon: ClipboardList, label: "Store Requests", href: "/inventory/requests" },
   { icon: Truck, label: "Online Orders", href: "/inventory/orders" },
+  { icon: RotateCcw, label: "Returns", href: "/inventory/returns" },
 ];
 
 export default function InventoryStock() {

@@ -215,6 +215,19 @@ All user addresses are validated with:
 - Min order amount and max discount limits
 - Usage limits (total and per-user)
 
+### Coupon API Field Mapping
+Frontend sends → Backend transforms:
+- `code` → `code` (uppercase), `name` (same as code)
+- `type` → `type` (percentage/fixed/free_shipping)
+- `value` → `value` (as string)
+- `minOrderAmount` → `minOrderAmount` (as string or null)
+- `maxDiscount` → `maxDiscount` (as string or null)
+- `maxUsageLimit` → `usageLimit` (as number or null)
+- `perUserLimit` → `perUserLimit` (as number or null)
+- `expiresAt` → `validUntil` (as Date)
+- `validFrom` → `validFrom` (as Date, defaults to now)
+- `isActive` → `isActive` (defaults to true)
+
 ### Notifications System
 - Database-backed notification storage
 - Order status update notifications
@@ -222,6 +235,7 @@ All user addresses are validated with:
 - Refund processing notifications
 
 ## Recent Changes (December 2024)
+- **Fixed coupon API field mapping** - Backend now correctly maps frontend field names (expiresAt→validUntil, maxUsageLimit→usageLimit) and provides sensible defaults (validFrom=now, validUntil=1 year)
 - **Fixed stock request status enum** - Changed from invalid "fulfilled" to proper statuses "dispatched" and "received" matching database enum
 - **Added store "Mark Received" action** - Store managers can now mark dispatched stock requests as received via new endpoint `/api/store/requests/:id/received`
 - **Added multiple image and video upload for sarees** - Inventory staff can upload main image, additional images (up to 5), and video

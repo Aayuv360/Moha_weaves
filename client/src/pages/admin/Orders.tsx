@@ -16,6 +16,8 @@ import {
   CheckCircle,
   Truck,
   XCircle,
+  Ticket,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +55,8 @@ const navItems = [
   { icon: UserCog, label: "Staff", href: "/admin/staff" },
   { icon: Building2, label: "Stores", href: "/admin/stores" },
   { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
+  { icon: Ticket, label: "Coupons", href: "/admin/coupons" },
+  { icon: Star, label: "Reviews", href: "/admin/reviews" },
 ];
 
 const statusConfig: Record<
