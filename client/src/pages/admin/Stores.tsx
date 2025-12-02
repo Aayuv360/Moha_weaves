@@ -19,6 +19,7 @@ import {
   Trash2,
   Ticket,
   Star,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -73,6 +74,7 @@ const navItems = [
   { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
   { icon: Ticket, label: "Coupons", href: "/admin/coupons" },
   { icon: Star, label: "Reviews", href: "/admin/reviews" },
+  { icon: Settings, label: "Settings", href: "/admin/settings" },
 ];
 
 export default function AdminStores() {

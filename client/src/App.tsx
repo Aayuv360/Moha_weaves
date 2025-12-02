@@ -34,6 +34,7 @@ import AdminStores from "@/pages/admin/Stores";
 import AdminOrders from "@/pages/admin/Orders";
 import AdminCoupons from "@/pages/admin/Coupons";
 import AdminReviews from "@/pages/admin/Reviews";
+import AdminSettings from "@/pages/admin/Settings";
 
 import InventoryLogin from "@/pages/inventory/Login";
 import InventoryDashboard from "@/pages/inventory/Dashboard";
@@ -109,6 +110,7 @@ function Router() {
         <Route path="/admin/orders" element={<AdminOrders />} />
         <Route path="/admin/coupons" element={<AdminCoupons />} />
         <Route path="/admin/reviews" element={<AdminReviews />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
         
         {/* Inventory module */}
         <Route path="/inventory/login" element={<InventoryLogin />} />
