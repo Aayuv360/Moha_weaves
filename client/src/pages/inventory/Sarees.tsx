@@ -86,7 +86,6 @@ interface SareeFormData {
   imageUrl: string;
   images: string[];
   videoUrl: string;
-  sku: string;
   totalStock: number;
   onlineStock: number;
   distributionChannel: "shop" | "online" | "both";
@@ -117,7 +116,6 @@ export default function InventorySarees() {
     imageUrl: "",
     images: [],
     videoUrl: "",
-    sku: "",
     totalStock: 0,
     onlineStock: 0,
     distributionChannel: "both",
@@ -221,7 +219,6 @@ export default function InventorySarees() {
       imageUrl: "",
       images: [],
       videoUrl: "",
-      sku: "",
       totalStock: 0,
       onlineStock: 0,
       distributionChannel: "both",
@@ -244,7 +241,6 @@ export default function InventorySarees() {
       imageUrl: saree.imageUrl || "",
       images: (saree as any).images || [],
       videoUrl: (saree as any).videoUrl || "",
-      sku: saree.sku || "",
       totalStock: saree.totalStock,
       onlineStock: saree.onlineStock,
       distributionChannel: saree.distributionChannel,
@@ -575,15 +571,19 @@ export default function InventorySarees() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="sku">SKU</Label>
-                <Input
-                  id="sku"
-                  value={formData.sku}
-                  onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                  data-testid="input-sku"
-                />
-              </div>
+              {editingSaree && (
+                <div>
+                  <Label htmlFor="sku">SKU</Label>
+                  <Input
+                    id="sku"
+                    value={editingSaree.sku || ""}
+                    disabled
+                    className="bg-muted cursor-not-allowed"
+                    data-testid="input-sku"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">SKU is auto-generated and cannot be changed</p>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="category">Category</Label>

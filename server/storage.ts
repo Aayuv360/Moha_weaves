@@ -448,7 +448,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSaree(saree: InsertSaree): Promise<Saree> {
-    const [result] = await db.insert(sarees).values(saree).returning();
+    // Auto-generate SKU if not provided: MH-YYYYMMDD-XXXXX (timestamp + random suffix)
+    let sareeData = saree;
+    if (!saree.sku) {
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+      const generatedSku = `MH-${dateStr}-${randomSuffix}`;
+      sareeData = { ...saree, sku: generatedSku };
+    }
+    const [result] = await db.insert(sarees).values(sareeData).returning();
     return result;
   }
 
@@ -467,7 +476,18 @@ export class DatabaseStorage implements IStorage {
     allocations: { storeId: string; quantity: number }[]
   ): Promise<Saree> {
     return await db.transaction(async (tx) => {
-      const [createdSaree] = await tx.insert(sarees).values(saree).returning();
+      // Auto-generate SKU: MH-YYYYMMDD-XXXXX (timestamp + random suffix)
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+      const generatedSku = `MH-${dateStr}-${randomSuffix}`;
+      
+      const sareeWithSku = {
+        ...saree,
+        sku: generatedSku,
+      };
+      
+      const [createdSaree] = await tx.insert(sarees).values(sareeWithSku).returning();
       
       const nonZeroAllocations = allocations.filter(a => a.quantity > 0);
       if (nonZeroAllocations.length > 0) {
@@ -489,7 +509,10 @@ export class DatabaseStorage implements IStorage {
     allocations: { storeId: string; quantity: number }[]
   ): Promise<Saree | undefined> {
     return await db.transaction(async (tx) => {
-      const [updatedSaree] = await tx.update(sarees).set(data).where(eq(sarees.id, id)).returning();
+      // Remove SKU from update data - SKU is auto-generated and should not be changed
+      const { sku, ...updateData } = data as any;
+      
+      const [updatedSaree] = await tx.update(sarees).set(updateData).where(eq(sarees.id, id)).returning();
       if (!updatedSaree) return undefined;
       
       await tx.delete(storeInventory).where(eq(storeInventory.sareeId, id));
