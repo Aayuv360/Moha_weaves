@@ -29,7 +29,18 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").notNull().default("user"),
   storeId: varchar("store_id"),
   isActive: boolean("is_active").notNull().default(true),
+  tokenVersion: integer("token_version").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Refresh tokens for secure session management
+export const refreshTokens = pgTable("refresh_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  isRevoked: boolean("is_revoked").notNull().default(false),
 });
 
 // Categories for sarees
@@ -475,7 +486,8 @@ export const orderStatusHistoryRelations = relations(orderStatusHistory, ({ one 
 }));
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, tokenVersion: true });
+export const insertRefreshTokenSchema = createInsertSchema(refreshTokens).omit({ id: true, createdAt: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export const insertColorSchema = createInsertSchema(colors).omit({ id: true });
 export const insertFabricSchema = createInsertSchema(fabrics).omit({ id: true });
@@ -504,6 +516,8 @@ export const insertAppSettingSchema = createInsertSchema(appSettings).omit({ upd
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type RefreshToken = typeof refreshTokens.$inferSelect;
+export type InsertRefreshToken = z.infer<typeof insertRefreshTokenSchema>;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Color = typeof colors.$inferSelect;

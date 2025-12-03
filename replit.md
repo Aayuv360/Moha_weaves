@@ -9,7 +9,26 @@ Moha is a full-stack saree e-commerce platform with role-based access for Users,
 - **Database**: PostgreSQL (Neon Serverless)
 - **ORM**: Drizzle ORM
 - **Styling**: Tailwind CSS with Shadcn UI components
-- **Authentication**: JWT with HTTPOnly cookies
+- **Authentication**: JWT with secure token system (access + refresh tokens)
+
+## Security Features
+### Authentication Security (December 2024)
+- **Short-lived Access Tokens**: 15-minute JWT access tokens for minimal exposure
+- **Rotating Refresh Tokens**: Secure refresh token rotation with 7-day expiry
+- **Hashed Token Storage**: Refresh tokens are SHA-256 hashed before database storage (prevents session theft on DB compromise)
+- **Token Version Tracking**: Session invalidation on password change
+- **Secure Cookies**: HTTPOnly, Secure, SameSite=Strict cookie settings
+- **Required SESSION_SECRET**: Server fails fast if SESSION_SECRET env var missing
+- **Automatic Token Refresh**: Frontend automatically refreshes tokens before expiry
+
+### Authentication API Endpoints
+- `POST /api/auth/refresh` - Refresh access token using refresh token cookie
+- `POST /api/auth/logout-all` - Invalidate all sessions for current user
+- `POST /api/auth/change-password` - Change password and invalidate all other sessions
+
+### Database Tables for Auth
+- `refresh_tokens` - Stores refresh tokens with userId, token hash, expiry, and revocation status
+- `users.tokenVersion` - Tracks token version for session invalidation
 
 ## Project Structure
 ```

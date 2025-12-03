@@ -1,7 +1,7 @@
 import {
   users, categories, colors, fabrics, stores, sarees, storeInventory,
   wishlist, cart, orders, orderItems, storeSales, storeSaleItems, stockRequests,
-  userAddresses, serviceablePincodes,
+  userAddresses, serviceablePincodes, refreshTokens,
   returnRequests, returnItems, refunds, productReviews, coupons, couponUsage,
   notifications, orderStatusHistory, appSettings,
   type User, type InsertUser, type Category, type InsertCategory,
@@ -15,6 +15,7 @@ import {
   type StockRequest, type InsertStockRequest,
   type UserAddress, type InsertUserAddress,
   type ServiceablePincode, type InsertServiceablePincode,
+  type RefreshToken, type InsertRefreshToken,
   type ReturnRequest, type InsertReturnRequest, type ReturnItem, type InsertReturnItem,
   type Refund, type InsertRefund, type ProductReview, type InsertProductReview,
   type Coupon, type InsertCoupon, type CouponUsage, type InsertCouponUsage,
@@ -34,6 +35,14 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getUsers(filters?: { role?: string }): Promise<User[]>;
   updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
+  incrementUserTokenVersion(id: string): Promise<void>;
+  updateUserPassword(id: string, hashedPassword: string): Promise<void>;
+
+  // Refresh Tokens
+  createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken>;
+  getRefreshToken(token: string): Promise<RefreshToken | undefined>;
+  revokeRefreshToken(token: string): Promise<void>;
+  revokeAllUserRefreshTokens(userId: string): Promise<void>;
 
   // Categories
   getCategories(): Promise<Category[]>;
@@ -249,6 +258,44 @@ export class DatabaseStorage implements IStorage {
   async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
     const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
     return user || undefined;
+  }
+
+  async incrementUserTokenVersion(id: string): Promise<void> {
+    await db.update(users)
+      .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
+      .where(eq(users.id, id));
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string): Promise<void> {
+    await db.update(users)
+      .set({ 
+        password: hashedPassword, 
+        tokenVersion: sql`${users.tokenVersion} + 1` 
+      })
+      .where(eq(users.id, id));
+  }
+
+  // Refresh Tokens
+  async createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken> {
+    const [result] = await db.insert(refreshTokens).values(token).returning();
+    return result;
+  }
+
+  async getRefreshToken(token: string): Promise<RefreshToken | undefined> {
+    const [result] = await db.select().from(refreshTokens).where(eq(refreshTokens.token, token));
+    return result || undefined;
+  }
+
+  async revokeRefreshToken(token: string): Promise<void> {
+    await db.update(refreshTokens)
+      .set({ isRevoked: true })
+      .where(eq(refreshTokens.token, token));
+  }
+
+  async revokeAllUserRefreshTokens(userId: string): Promise<void> {
+    await db.update(refreshTokens)
+      .set({ isRevoked: true })
+      .where(eq(refreshTokens.userId, userId));
   }
 
   // Categories
